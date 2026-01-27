@@ -8,7 +8,8 @@ import jsPDF from "jspdf";
 import { 
   Search, ShoppingBag, X, Minus, Plus, ArrowRight, Loader2, Star, 
   CheckCircle, AlertCircle, MessageCircle, ChevronLeft, ChevronRight,
-  ClipboardList, Clock, Sparkles, Sun, Moon, User, Printer, Trash2
+  ClipboardList, Clock, Sparkles, Sun, Moon, User, Printer, Trash2,
+  Instagram, Facebook, Mail 
 } from "lucide-react";
 
 // --- TYPES ---
@@ -52,109 +53,117 @@ const DEFAULT_HERO_IMAGES = [
   "https://images.unsplash.com/photo-1556228720-1915d590a362?q=80&w=2574&auto=format&fit=crop"  
 ];
 
-// --- 100+ MOTIVATIONAL QUOTES ---
+// --- SMART ROUTINE PRESETS ---
+const SKIN_TYPE_PRESETS: Record<string, { am: string[], pm: string[] }> = {
+  "Oily": {
+    am: ["Gel Cleanser", "Niacinamide Toner", "Matte SPF 50"],
+    pm: ["Oil Cleanser", "Salicylic Acid Cleanser", "Light Gel Moisturizer"]
+  },
+  "Dry": {
+    am: ["Cream Cleanser", "Hyaluronic Acid Serum", "Hydrating SPF 50"],
+    pm: ["Cleansing Balm", "Retinol 0.2%", "Rich Night Cream"]
+  },
+  "Combination": {
+    am: ["Gentle Cleanser", "Vitamin C Serum", "Lightweight SPF"],
+    pm: ["Micellar Water", "Foaming Cleanser", "Balanced Moisturizer"]
+  },
+  "Sensitive": {
+    am: ["Water Rinse", "Soothing Serum", "Mineral SPF 50"],
+    pm: ["Gentle Milk Cleanser", "Cica Repair Balm"]
+  },
+  "Normal": {
+    am: ["Gentle Cleanser", "Vitamin C Serum", "SPF 50"],
+    pm: ["Cleanser", "Glycolic Toner", "Night Moisturizer"]
+  }
+};
+
 const MOTIVATIONAL_QUOTES = [
-  "Consistency is the only magic pill.",
-  "Invest in your skin. It is going to represent you for a very long time.",
-  "Your skin is 90% of your selfie.",
-  "Skincare is a marathon, not a sprint.",
-  "Glow is an inside job.",
-  "Healthy skin is always in.",
-  "Self-care is not selfish.",
-  "Beautiful skin requires commitment, not a miracle.",
-  "Filter free is the goal.",
-  "Take time to make your soul happy... and your skin glowing.",
-  "Exfoliate the bad vibes.",
-  "Your skin is an investment, not an expense.",
-  "Sleep, drink water, and treat your skin.",
-  "Glowing skin is a result of proper skincare. It means you can wear less makeup and let your skin shine through.",
-  "Be good to your skin. You’ll wear it every day for the rest of your life.",
-  "Skincare is like dieting. You have to invest time and effort. There is no instant miracle cure.",
-  "Happiness is a habit. So is your skincare.",
-  "Don't forget to drink water and get some sun (with SPF!).",
-  "Confidence breeds beauty.",
-  "Wake up and makeup? No, wake up and skincare.",
-  "The best foundation you can wear is healthy glowing skin.",
-  "I regret taking such good care of my skin. – Said no one ever.",
-  "SPF is your BFF.",
-  "Your skin routine is a bank account. Good choices are good investments.",
-  "May your coffee be strong and your SPF be stronger.",
-  "Facials are my workout.",
-  "Beauty is being comfortable in your own skin.",
-  "You are one facial away from a good mood.",
-  "Last minute skincare is better than no skincare.",
-  "Peace, Love, and Face Masks.",
-  "Less stress, more facials.",
-  "Slay the day, but wash your face first.",
-  "Skincare first, makeup second, smile always.",
-  "Great skin doesn't happen by chance, it happens by appointment.",
-  "Keep calm and moisturize on.",
-  "A little progress each day adds up to big results.",
-  "Respect your skin.",
-  "Trust the process. Your skin is healing.",
-  "Real skin has texture. Real skin has pores. Real skin is beautiful.",
-  "Your skin is the best accessory. Take care of it.",
-  "Every day is a fresh start for your skin.",
-  "Don't let yesterday take up too much of today.",
-  "Small daily improvements are the key to staggering long-term results.",
-  "You glow differently when you take care of yourself.",
-  "Protect your peace. Protect your skin.",
-  "Hydrate. Moisturize. Repeat.",
-  "Self-love looks good on you.",
-  "Routine is what turns a dream into reality.",
-  "Be patient with your skin.",
-  "Beauty begins the moment you decide to be yourself.",
-  "Skin cells turnover every 28 days. As we age this rate decreases.",
-  "Aging is a fact of life. Looking your age is not.",
-  "Sunscreen is the fountain of youth.",
-  "Don't go to bed with your makeup on.",
-  "Your face is your canvas.",
-  "Start your day with a grateful heart and a clean face.",
-  "Love the skin you're in.",
-  "Time spent on yourself is never wasted.",
-  "Cleanse, tone, moisturize, conquer.",
-  "Focus on the good.",
-  "Today is a perfect day to start.",
-  "Discipline is doing what needs to be done, even if you don't want to.",
-  "Your future self will thank you.",
-  "Make yourself a priority.",
-  "Relax, refresh, recharge.",
-  "Inner beauty is great, but a little skincare never hurt.",
-  "Life isn't perfect but your skin can be.",
-  "Serums are magic potions.",
-  "Just keep glowing.",
-  "Don't rush the process.",
-  "Listen to your skin.",
-  "Feed your skin with good ingredients.",
-  "Self-discipline is self-love.",
-  "A healthy outside starts from the inside.",
-  "Stress less, glow more.",
-  "Good things come to those who cleanse.",
-  "Be your own kind of beautiful.",
-  "Let your skin breathe.",
-  "Radiate positivity.",
-  "Embrace your natural beauty.",
-  "You are enough.",
-  "A good skincare routine is the secret to aging gracefully.",
-  "Consistency beats intensity.",
-  "Keep your standards high and your skin clear.",
-  "Face masks and chill.",
-  "Get your glow on.",
-  "Your skin remembers.",
-  "Beauty is power, a smile is its sword.",
-  "Give your skin a drink.",
-  "Be consistent.",
-  "Nature gives you the face you have at twenty; it is up to you to merit the face you have at fifty.",
-  "Dermatologist tested, mother approved.",
-  "Prevention is better than cure.",
-  "Skincare is healthcare.",
-  "The clearer the skin, the clearer the mind.",
-  "It’s not vanity, it’s maintenance.",
-  "You can't buy happiness, but you can buy skincare.",
-  "Keep shining.",
-  "Every step counts.",
+  "Consistency is the only magic pill.", "Invest in your skin. It is going to represent you for a very long time.",
+  "Your skin is 90% of your selfie.", "Skincare is a marathon, not a sprint.", "Glow is an inside job.",
+  "Healthy skin is always in.", "Self-care is not selfish.", "Beautiful skin requires commitment, not a miracle.",
+  "Filter free is the goal.", "Exfoliate the bad vibes.", "Your skin is an investment, not an expense.",
+  "Sleep, drink water, and treat your skin.", "Confidence breeds beauty.", "SPF is your BFF.",
+  "May your coffee be strong and your SPF be stronger.", "Facials are my workout.", "Beauty is being comfortable in your own skin.",
+  "You are one facial away from a good mood.", "Last minute skincare is better than no skincare.", "Peace, Love, and Face Masks.",
+  "Less stress, more facials.", "Slay the day, but wash your face first.", "Skincare first, makeup second, smile always.",
+  "Great skin doesn't happen by chance, it happens by appointment.", "Keep calm and moisturize on.", "A little progress each day adds up to big results.",
+  "Respect your skin.", "Trust the process. Your skin is healing.", "Real skin has texture. Real skin has pores. Real skin is beautiful.",
+  "Your skin is the best accessory. Take care of it.", "Every day is a fresh start for your skin.", "Don't let yesterday take up too much of today.",
+  "Small daily improvements are the key to staggering long-term results.", "You glow differently when you take care of yourself.",
+  "Protect your peace. Protect your skin.", "Hydrate. Moisturize. Repeat.", "Self-love looks good on you.", "Routine is what turns a dream into reality.",
+  "Be patient with your skin.", "Beauty begins the moment you decide to be yourself.", "Skin cells turnover every 28 days. As we age this rate decreases.",
+  "Aging is a fact of life. Looking your age is not.", "Sunscreen is the fountain of youth.", "Don't go to bed with your makeup on.",
+  "Your face is your canvas.", "Start your day with a grateful heart and a clean face.", "Love the skin you're in.",
+  "Time spent on yourself is never wasted.", "Cleanse, tone, moisturize, conquer.", "Focus on the good.", "Today is a perfect day to start.",
+  "Discipline is doing what needs to be done, even if you don't want to.", "Your future self will thank you.", "Make yourself a priority.",
+  "Relax, refresh, recharge.", "Inner beauty is great, but a little skincare never hurt.", "Life isn't perfect but your skin can be.",
+  "Serums are magic potions.", "Just keep glowing.", "Don't rush the process.", "Listen to your skin.", "Feed your skin with good ingredients.",
+  "Self-discipline is self-love.", "A healthy outside starts from the inside.", "Stress less, glow more.", "Good things come to those who cleanse.",
+  "Be your own kind of beautiful.", "Let your skin breathe.", "Radiate positivity.", "Embrace your natural beauty.", "You are enough.",
+  "A good skincare routine is the secret to aging gracefully.", "Consistency beats intensity.", "Keep your standards high and your skin clear.",
+  "Face masks and chill.", "Get your glow on.", "Your skin remembers.", "Beauty is power, a smile is its sword.", "Give your skin a drink.",
+  "Be consistent.", "Nature gives you the face you have at twenty; it is up to you to merit the face you have at fifty.",
+  "Dermatologist tested, mother approved.", "Prevention is better than cure.", "Skincare is healthcare.", "The clearer the skin, the clearer the mind.",
+  "It’s not vanity, it’s maintenance.", "You can't buy happiness, but you can buy skincare.", "Keep shining.", "Every step counts.",
   "Do it for the 'After' photo."
 ];
+
+// --- COMPACT PREMIUM FOOTER ---
+const Footer = () => (
+  <footer className="bg-gray-900 text-white border-t border-gray-800 py-10 mt-auto">
+    <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-start gap-8">
+      
+      {/* Brand Section */}
+      <div className="md:w-1/3">
+        <h3 className="text-xl font-serif font-bold tracking-widest mb-2">SELA.</h3>
+        <p className="text-gray-400 text-xs leading-relaxed max-w-xs mb-4">
+          Redefining skincare with science-backed formulations for the modern minimalist.
+        </p>
+        <div className="flex gap-4">
+           <a href="#" className="text-gray-400 hover:text-white transition"><Instagram className="w-4 h-4" /></a>
+           <a href="#" className="text-gray-400 hover:text-white transition"><Facebook className="w-4 h-4" /></a>
+           <a href="#" className="text-gray-400 hover:text-white transition"><Mail className="w-4 h-4" /></a>
+        </div>
+      </div>
+
+      {/* Quick Links */}
+      <div className="flex flex-wrap gap-8 md:gap-16 text-xs text-gray-400">
+        <div>
+          <h4 className="font-bold text-white uppercase tracking-widest mb-3">Shop</h4>
+          <ul className="space-y-2">
+            <li><a href="#" className="hover:text-white transition">All Products</a></li>
+            <li><a href="#" className="hover:text-white transition">New Arrivals</a></li>
+            <li><a href="#" className="hover:text-white transition">Best Sellers</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-bold text-white uppercase tracking-widest mb-3">Support</h4>
+          <ul className="space-y-2">
+            <li><a href="#" className="hover:text-white transition">Shipping</a></li>
+            <li><a href="#" className="hover:text-white transition">Returns</a></li>
+            <li><a href="#" className="hover:text-white transition">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-bold text-white uppercase tracking-widest mb-3">Legal</h4>
+          <ul className="space-y-2">
+            <li><a href="#" className="hover:text-white transition">Privacy</a></li>
+            <li><a href="#" className="hover:text-white transition">Terms</a></li>
+            <li><a href="https://supabase.com/dashboard" target="_blank" className="hover:text-white transition opacity-50 hover:opacity-100">Admin</a></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+    
+    <div className="max-w-7xl mx-auto px-6 mt-10 pt-6 border-t border-gray-800 text-[10px] text-gray-500 flex flex-col md:flex-row justify-between items-center gap-2">
+      <p>© 2026 Sela Cosmetics. All rights reserved.</p>
+      <a href="https://heytechmate.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors opacity-70 hover:opacity-100">
+        Built by heytechmate.com
+      </a>
+    </div>
+  </footer>
+);
 
 export default function Home() {
   // --- E-COMMERCE STATE ---
@@ -198,8 +207,8 @@ export default function Home() {
       skinType: "Normal",
       wakeTime: "07:00",
       bedTime: "22:00",
-      amProducts: ['Cleanser', 'SPF 50'] as string[],
-      pmProducts: ['Cleanser', 'Moisturizer'] as string[]
+      amProducts: SKIN_TYPE_PRESETS["Normal"].am,
+      pmProducts: SKIN_TYPE_PRESETS["Normal"].pm
   });
   const [newRoutineProduct, setNewRoutineProduct] = useState("");
 
@@ -293,6 +302,16 @@ export default function Home() {
   };
 
   // --- ROUTINE LOGIC ---
+  const handleSkinTypeChange = (type: string) => {
+    const preset = SKIN_TYPE_PRESETS[type] || { am: [], pm: [] };
+    setRoutineForm(prev => ({
+      ...prev,
+      skinType: type,
+      amProducts: [...preset.am],
+      pmProducts: [...preset.pm]
+    }));
+  };
+
   const addRoutineProduct = (type: 'am' | 'pm') => {
     if (!newRoutineProduct.trim()) return;
     setRoutineForm(prev => ({
@@ -330,8 +349,6 @@ export default function Home() {
     let currentY = 15;
 
     // --- 1. HEADER SIDE-BY-SIDE ---
-    // In landscape, we put Brand on Left, Details on Right to save vertical space
-    
     // Left: Brand
     doc.setFont("times", "bold");
     doc.setFontSize(24);
@@ -381,7 +398,6 @@ export default function Home() {
       doc.setLineWidth(0.5);
       if (iconType === 'sun') {
         doc.circle(margin + 6, textY - 1.2, 2, 'S');
-        // Sun rays (simple lines)
         doc.setLineWidth(0.1);
         doc.line(margin + 6, textY - 4.2, margin + 6, textY - 3.2); // Top
         doc.line(margin + 6, textY + 0.8, margin + 6, textY + 1.8); // Bottom
@@ -491,7 +507,8 @@ export default function Home() {
   const filteredProducts = products.filter(p => (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())));
 
   return (
-    <main className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white pb-20 relative">
+    // FIXED LAYOUT STRUCTURE FOR STICKY FOOTER
+    <div className="min-h-screen flex flex-col bg-white text-black font-sans selection:bg-black selection:text-white">
       
       <div className="bg-black text-white text-[10px] md:text-xs font-bold text-center py-2 tracking-widest uppercase">
         {siteSettings.bannerText}
@@ -523,109 +540,118 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* HERO SECTION (MOBILE OPTIMIZED) */}
-      <section className="relative h-[85vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
-        
-        {/* ARROWS: Hidden on Mobile (hidden), Visible on Desktop (md:block) */}
-        <button 
-          onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} 
-          className="hidden md:block absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <button 
-          onClick={() => setCurrentHeroIndex(prev => (prev + 1) % activeHeroImages.length)} 
-          className="hidden md:block absolute right-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
-
-        {/* IMAGE */}
-        <AnimatePresence mode="wait">
-            <motion.div 
-              key={currentHeroIndex} 
-              initial={{ opacity: 0, scale: 1.05 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              exit={{ opacity: 0 }} 
-              transition={{ duration: 1 }} 
-              className="absolute inset-0 bg-gray-900" // Dark background to help image contrast
+      {/* MAIN CONTENT GROWS TO FILL SPACE */}
+      <main className="flex-grow">
+      
+        {/* HERO SECTION (MOBILE OPTIMIZED) */}
+        <section className="relative h-[85vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
+            
+            {/* ARROWS: Hidden on Mobile (hidden), Visible on Desktop (md:block) */}
+            <button 
+            onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} 
+            className="hidden md:block absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
             >
-                {/* Opacity lowered slightly on mobile for better text readability */}
-                <Image 
-                  src={activeHeroImages[currentHeroIndex]} 
-                  alt="Hero" 
-                  fill 
-                  className="object-cover opacity-80 md:opacity-90" 
-                  priority 
-                />
-                {/* Gradient Overlay for better text visibility */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-            </motion.div>
-        </AnimatePresence>
+            <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button 
+            onClick={() => setCurrentHeroIndex(prev => (prev + 1) % activeHeroImages.length)} 
+            className="hidden md:block absolute right-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
+            >
+            <ChevronRight className="w-6 h-6" />
+            </button>
 
-        {/* CONTENT */}
-        <div className="relative z-10 text-center space-y-6 max-w-lg px-6 mt-10 md:mt-0">
-          <h2 className="text-4xl md:text-6xl font-serif text-white drop-shadow-lg leading-tight">
-            THE NEW <br className="md:hidden" /> STANDARD
-          </h2>
-          
-          <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md max-w-xs mx-auto">
-            Science-backed formulations for the modern minimalist.
-          </p>
-          
-          {/* BUTTONS: Column on Mobile, Row on Desktop */}
-          <div className="flex flex-col md:flex-row gap-4 justify-center items-center w-full pt-4">
-             <button 
-               onClick={scrollToShop} 
-               className="w-full md:w-auto bg-white text-black px-8 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300 rounded-sm"
-             >
-               Shop Collection
-             </button>
-             
-             <button 
-               onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} 
-               className="w-full md:w-auto bg-black/40 backdrop-blur-md text-white border border-white/30 px-6 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center justify-center gap-2 rounded-sm"
-             >
-                <Sparkles className="w-3 h-3" /> Free Routine
-             </button>
-          </div>
+            {/* IMAGE */}
+            <AnimatePresence mode="wait">
+                <motion.div 
+                key={currentHeroIndex} 
+                initial={{ opacity: 0, scale: 1.05 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                exit={{ opacity: 0 }} 
+                transition={{ duration: 1 }} 
+                className="absolute inset-0 bg-gray-900" // Dark background to help image contrast
+                >
+                    {/* Opacity lowered slightly on mobile for better text readability */}
+                    <Image 
+                    src={activeHeroImages[currentHeroIndex]} 
+                    alt="Hero" 
+                    fill 
+                    className="object-cover opacity-80 md:opacity-90" 
+                    priority 
+                    />
+                    {/* Gradient Overlay for better text visibility */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                </motion.div>
+            </AnimatePresence>
+
+            {/* CONTENT */}
+            <div className="relative z-10 text-center space-y-6 max-w-lg px-6 mt-10 md:mt-0">
+            <h2 className="text-4xl md:text-6xl font-serif text-white drop-shadow-lg leading-tight">
+                THE NEW <br className="md:hidden" /> STANDARD
+            </h2>
+            
+            <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md max-w-xs mx-auto">
+                Science-backed formulations for the modern minimalist.
+            </p>
+            
+            {/* BUTTONS: Column on Mobile, Row on Desktop */}
+            <div className="flex flex-col md:flex-row gap-4 justify-center items-center w-full pt-4">
+                <button 
+                onClick={scrollToShop} 
+                className="w-full md:w-auto bg-white text-black px-8 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300 rounded-sm"
+                >
+                Shop Collection
+                </button>
+                
+                <button 
+                onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} 
+                className="w-full md:w-auto bg-black/40 backdrop-blur-md text-white border border-white/30 px-6 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center justify-center gap-2 rounded-sm"
+                >
+                    <Sparkles className="w-3 h-3" /> Free Routine
+                </button>
+            </div>
+            </div>
+        </section>
+
+        {/* SHOP SECTION */}
+        <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
+            <div className="flex justify-center gap-8 overflow-x-auto no-scrollbar px-6">
+            {categories.map((cat) => (
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap pb-1 border-b-2 transition-all duration-300 ${activeCategory === cat ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'} ${cat === 'SALE' ? 'text-red-600 border-red-600' : ''}`}>{cat}</button>
+            ))}
+            </div>
         </div>
-      </section>
 
-      {/* SHOP SECTION */}
-      <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
-        <div className="flex justify-center gap-8 overflow-x-auto no-scrollbar px-6">
-          {categories.map((cat) => (
-            <button key={cat} onClick={() => setActiveCategory(cat)} className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap pb-1 border-b-2 transition-all duration-300 ${activeCategory === cat ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'} ${cat === 'SALE' ? 'text-red-600 border-red-600' : ''}`}>{cat}</button>
-          ))}
-        </div>
-      </div>
-
-      <section className="max-w-7xl mx-auto px-4 md:px-6 py-12">
-        {loading ? <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin" /></div> : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-12">
-            {filteredProducts.map((product) => {
-                const isSoldOut = (product.variants && product.variants.length > 0 ? product.variants.reduce((a,v)=>a+(v.stock||0),0) : product.stock) <= 0;
-                return (
-                    <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
-                    <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
-                        <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
-                        {product.is_on_sale && !isSoldOut && <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">Sale</div>}
-                        {!isSoldOut && <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0">Quick Add</button>}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 line-clamp-1">{product.name}</h3>
-                        <div className="flex flex-col items-start gap-0.5">
-                            {product.is_on_sale && product.original_price && <span className="text-[10px] text-gray-400 line-through">Was {siteSettings.currency} {product.original_price.toLocaleString()}</span>}
-                            <p className={`text-sm font-medium ${product.is_on_sale ? 'text-red-600 font-bold' : ''}`}>{siteSettings.currency} {product.price.toLocaleString()}</p>
+        <section className="max-w-7xl mx-auto px-4 md:px-6 py-12">
+            {loading ? <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin" /></div> : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-12">
+                {filteredProducts.map((product) => {
+                    const isSoldOut = (product.variants && product.variants.length > 0 ? product.variants.reduce((a,v)=>a+(v.stock||0),0) : product.stock) <= 0;
+                    return (
+                        <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
+                        <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
+                            <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
+                            {product.is_on_sale && !isSoldOut && <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">Sale</div>}
+                            {!isSoldOut && <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0">Quick Add</button>}
                         </div>
-                    </div>
-                    </div>
-                );
-            })}
-          </div>
-        )}
-      </section>
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 line-clamp-1">{product.name}</h3>
+                            <div className="flex flex-col items-start gap-0.5">
+                                {product.is_on_sale && product.original_price && <span className="text-[10px] text-gray-400 line-through">Was {siteSettings.currency} {product.original_price.toLocaleString()}</span>}
+                                <p className={`text-sm font-medium ${product.is_on_sale ? 'text-red-600 font-bold' : ''}`}>{siteSettings.currency} {product.price.toLocaleString()}</p>
+                            </div>
+                        </div>
+                        </div>
+                    );
+                })}
+            </div>
+            )}
+        </section>
+
+      </main>
+
+      <Footer />
+
+      {/* --- MODALS (OUTSIDE MAIN FLOW) --- */}
 
       {/* SHOPPING BAG */}
       <AnimatePresence>
@@ -716,8 +742,8 @@ export default function Home() {
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Skin Type</label>
                                 <div className="grid grid-cols-3 gap-2">
-                                    {['Oily', 'Dry', 'Combo', 'Normal', 'Sensitive'].map(type => (
-                                        <button key={type} onClick={() => setRoutineForm({...routineForm, skinType: type})} className={`py-2 text-xs font-bold rounded-lg border transition ${routineForm.skinType === type ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>{type}</button>
+                                    {['Oily', 'Dry', 'Combination', 'Normal', 'Sensitive'].map(type => (
+                                        <button key={type} onClick={() => handleSkinTypeChange(type)} className={`py-2 text-xs font-bold rounded-lg border transition ${routineForm.skinType === type ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>{type}</button>
                                     ))}
                                 </div>
                             </div>
@@ -828,6 +854,7 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
-    </main>
+
+    </div> // CORRECT CLOSING TAG IS NOW </div>
   );
 }

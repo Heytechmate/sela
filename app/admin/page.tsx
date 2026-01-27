@@ -12,8 +12,7 @@ import {
   ArchiveX, AlertTriangle, Clock
 } from "lucide-react";
 
-// --- UPDATED TYPES ---
-// Added cost_price to Variant so we can calculate profit per size
+// --- TYPES ---
 type Variant = { name: string; price: number; cost_price: number; stock: number };
 
 type Product = {
@@ -74,7 +73,6 @@ const CITY_GROUPS = {
 export default function AdminPage() {
   const router = useRouter();
   
-  // --- INITIALIZE SUPABASE ---
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -125,7 +123,6 @@ export default function AdminPage() {
   const [heroFiles, setHeroFiles] = useState<File[]>([]);
   const [existingGallery, setExistingGallery] = useState<string[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
-  // Updated tempVariant to include cost
   const [tempVariant, setTempVariant] = useState({ name: "", price: "", cost_price: "", stock: "" });
 
   const SUGGESTED_CATEGORIES = ['Lips', 'Face', 'Skin', 'Eyes', 'Sets', 'Perfume', 'Accessories'];
@@ -189,10 +186,9 @@ export default function AdminPage() {
     }
   }
 
-  // --- UPDATED PROFIT LOGIC TO HANDLE VARIANTS ---
   const calculateProductProfit = (price: number, cost: number) => {
       return price - (cost || 0);
-  }
+  };
 
   const calculateOrderProfit = (order: Order) => {
       let profit = 0;
@@ -200,9 +196,8 @@ export default function AdminPage() {
           const product = products.find(p => p.name === item.name);
           if (!product) return;
 
-          let cost = product.cost_price || 0; // Default base cost
+          let cost = product.cost_price || 0; 
 
-          // If item is a specific variant, try to find THAT variant's cost
           if (item.variant && product.variants && product.variants.length > 0) {
               const variant = product.variants.find(v => v.name === item.variant);
               if (variant && variant.cost_price) {
@@ -215,7 +210,6 @@ export default function AdminPage() {
       return profit;
   };
 
-  // --- METRICS CALCULATION ---
   const today = new Date().toLocaleDateString();
   const activeOrdersList = orders.filter(o => o.status !== 'Cancelled');
   const cancelledOrdersList = orders.filter(o => o.status === 'Cancelled');
@@ -234,7 +228,6 @@ export default function AdminPage() {
       historyPage * ITEMS_PER_PAGE
   );
 
-  // --- STOCK RESTORATION LOGIC ---
   const returnStockForOrder = async (order: Order) => {
       let restoredCount = 0;
       for (const item of order.items) {
@@ -281,7 +274,6 @@ export default function AdminPage() {
       }
   };
 
-  // --- BULK UPLOAD ---
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -473,12 +465,25 @@ export default function AdminPage() {
       setVariants([...variants, { 
           name: tempVariant.name, 
           price: parseFloat(tempVariant.price), 
-          cost_price: parseFloat(tempVariant.cost_price) || 0, // Capture cost
+          cost_price: parseFloat(tempVariant.cost_price) || 0, 
           stock: parseInt(tempVariant.stock) || 0 
       }]); 
-      setTempVariant({ name: "", price: "", cost_price: "", stock: "" }); // Reset
+      setTempVariant({ name: "", price: "", cost_price: "", stock: "" }); 
   };
   
+  // --- NEW: UPDATE VARIANT HANDLER ---
+  const updateVariant = (index: number, field: keyof Variant, value: string) => {
+      const updatedVariants = [...variants];
+      const v = updatedVariants[index];
+      
+      if (field === 'name') v.name = value;
+      else if (field === 'stock') v.stock = parseInt(value) || 0;
+      else if (field === 'price') v.price = parseFloat(value) || 0;
+      else if (field === 'cost_price') v.cost_price = parseFloat(value) || 0;
+      
+      setVariants(updatedVariants);
+  };
+
   const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
   const removeHeroImage = (i: number) => setSettings(p => ({ ...p, hero_images: p.hero_images.filter((_, idx) => idx !== i) }));
   
@@ -571,8 +576,8 @@ export default function AdminPage() {
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Product</th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Code</th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Stock</th>
-                            {/* UPDATED HEADER FOR PRICE & PROFIT */}
-                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Price <span className="text-gray-300 mx-1">/</span> <span className="text-green-600">Profit</span></th>
+                            {/* PROFIT COLUMN RESTORED */}
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Price / <span className="text-green-600">Profit</span></th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
                           </tr>
                         </thead>
@@ -604,12 +609,10 @@ export default function AdminPage() {
                                   <span className={`text-xs font-bold px-2 py-1 rounded ${product.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{product.stock}</span>
                                 )}
                               </td>
-                              {/* SHOWING PRICE AND PROFIT */}
+                              {/* PROFIT DATA */}
                               <td className="px-6 py-4 text-right">
                                 <div className="flex flex-col items-end">
-                                   <span className="font-bold text-sm text-gray-900">
-                                      {settings.currency} {product.price.toLocaleString()}
-                                   </span>
+                                   <span className="font-bold text-sm text-gray-900">{settings.currency} {product.price.toLocaleString()}</span>
                                    <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 rounded mt-0.5">
                                       +{settings.currency} {calculateProductProfit(product.price, product.cost_price).toLocaleString()}
                                    </span>
@@ -637,62 +640,83 @@ export default function AdminPage() {
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
                     <div className={`px-8 py-6 border-b border-gray-200 flex justify-between items-center ${editingId ? 'bg-yellow-50' : 'bg-gray-50'}`}><h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${editingId ? 'text-yellow-700' : 'text-gray-500'}`}>{editingId ? <><Pencil className="w-4 h-4" /> Editing Product</> : <><Plus className="w-4 h-4" /> Create New Product</>}</h2><button onClick={cancelEditing} className="text-gray-400 hover:text-black transition"><X className="w-6 h-6" /></button></div>
                     <form onSubmit={handleSaveProduct} className="p-8 space-y-8 max-h-[80vh] overflow-y-auto">
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                           <div className="space-y-6">
-                               <div className="grid grid-cols-2 gap-4">
-                                   <div><label className="text-xs font-bold text-gray-500 mb-1 block">Brand Name</label><input required className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} /></div>
-                                   <div><label className="text-xs font-bold text-gray-500 mb-1 block">SKU Code</label><div className="flex gap-2"><input readOnly className="w-full bg-gray-100 border-none rounded-lg p-3 text-sm font-mono font-bold text-gray-600 outline-none" value={form.sku} placeholder="Auto-generated" /><button type="button" onClick={generateSKU} className="bg-blue-600 text-white px-3 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Auto</button></div></div>
-                               </div>
-                               <div><label className="text-xs font-bold text-gray-500 mb-1 block">Product Name</label><input required className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
-                               
-                               <div className="grid grid-cols-3 gap-4">
-                                   <div><label className="text-xs font-bold text-gray-500 mb-1 block">Selling Price</label><input required type="number" step="0.01" className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.price} onChange={e => setForm({...form, price: e.target.value})} /></div>
-                                   <div><label className="text-xs font-bold text-gray-500 mb-1 block">Buying Cost</label><input type="number" step="0.01" className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.cost_price} onChange={e => setForm({...form, cost_price: e.target.value})} placeholder="0.00" /></div>
-                                   <div><label className="text-xs font-bold text-gray-500 mb-1 block">Original Price</label><input type="number" step="0.01" className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.original_price} onChange={e => setForm({...form, original_price: e.target.value})} placeholder="0.00" /></div>
-                               </div>
-                               <div className="flex items-center gap-2 text-xs font-medium text-gray-500"><TrendingUp className="w-4 h-4 text-green-600" /> Estimated Profit: <span className="text-green-700 font-bold">{settings.currency} {calculateProductProfit(Number(form.price), Number(form.cost_price)).toLocaleString()}</span></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><label className="text-xs font-bold text-gray-500 mb-1 block">Brand Name</label><input required className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} /></div>
+                                    <div><label className="text-xs font-bold text-gray-500 mb-1 block">SKU Code</label><div className="flex gap-2"><input readOnly className="w-full bg-gray-100 border-none rounded-lg p-3 text-sm font-mono font-bold text-gray-600 outline-none" value={form.sku} placeholder="Auto-generated" /><button type="button" onClick={generateSKU} className="bg-blue-600 text-white px-3 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Auto</button></div></div>
+                                </div>
+                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">Product Name</label><input required className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.name} onChange={e => setForm({...form, name: e.target.value})} /></div>
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div><label className="text-xs font-bold text-gray-500 mb-1 block">Selling Price</label><input required type="number" step="0.01" className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.price} onChange={e => setForm({...form, price: e.target.value})} /></div>
+                                    <div><label className="text-xs font-bold text-gray-500 mb-1 block">Buying Cost</label><input type="number" step="0.01" className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.cost_price} onChange={e => setForm({...form, cost_price: e.target.value})} placeholder="0.00" /></div>
+                                    <div><label className="text-xs font-bold text-gray-500 mb-1 block">Original Price</label><input type="number" step="0.01" className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.original_price} onChange={e => setForm({...form, original_price: e.target.value})} placeholder="0.00" /></div>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-medium text-gray-500"><TrendingUp className="w-4 h-4 text-green-600" /> Estimated Profit: <span className="text-green-700 font-bold">{settings.currency} {((parseFloat(form.price)||0) - (parseFloat(form.cost_price)||0)).toLocaleString()}</span></div>
 
-                               <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100">
-                                   <input type="checkbox" id="saleToggle" checked={form.is_on_sale} onChange={(e) => setForm({...form, is_on_sale: e.target.checked})} className="w-5 h-5 accent-red-600" />
-                                   <label htmlFor="saleToggle" className="text-sm font-bold text-red-700 cursor-pointer flex items-center gap-2"><Megaphone className="w-4 h-4" /> Mark as Promotion / Sale Item</label>
-                               </div>
+                                <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100">
+                                    <input type="checkbox" id="saleToggle" checked={form.is_on_sale} onChange={(e) => setForm({...form, is_on_sale: e.target.checked})} className="w-5 h-5 accent-red-600" />
+                                    <label htmlFor="saleToggle" className="text-sm font-bold text-red-700 cursor-pointer flex items-center gap-2"><Megaphone className="w-4 h-4" /> Mark as Promotion / Sale Item</label>
+                                </div>
 
-                               <div><label className="text-xs font-bold text-gray-500 mb-1 block">Category</label><input list="category-options" required className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="category-options">{SUGGESTED_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist></div>
-                               <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
-                           </div>
-                           <div className="space-y-6">
-                               <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
-                               <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label>
-                               
-                               {/* UPDATED VARIANT INPUTS TO INCLUDE COST */}
-                               <div className="flex gap-2 mb-3">
-                                   <input className="flex-1 bg-white border border-gray-200 rounded-lg p-2 text-xs" placeholder="Size (e.g. 30ml)" value={tempVariant.name} onChange={e => setTempVariant({...tempVariant, name: e.target.value})} />
-                                   <input className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Cost" value={tempVariant.cost_price} onChange={e => setTempVariant({...tempVariant, cost_price: e.target.value})} />
-                                   <input className="w-24 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Price" value={tempVariant.price} onChange={e => setTempVariant({...tempVariant, price: e.target.value})} />
-                                   <input className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Qty" value={tempVariant.stock} onChange={e => setTempVariant({...tempVariant, stock: e.target.value})} />
-                                   <button type="button" onClick={handleAddVariant} className="bg-black text-white px-4 rounded-lg text-xs font-bold">Add</button>
-                               </div>
+                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">Category</label><input list="category-options" required className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="category-options">{SUGGESTED_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist></div>
+                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
+                            </div>
+                            <div className="space-y-6">
+                                <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
+                                <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label>
+                                
+                                {/* FIXED GRID LAYOUT FOR VARIANT INPUTS */}
+                                <div className="grid grid-cols-12 gap-2 mb-3 items-center">
+                                    <div className="col-span-3">
+                                      <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" placeholder="Size (e.g. 30ml)" value={tempVariant.name} onChange={e => setTempVariant({...tempVariant, name: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-3">
+                                      <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Cost" value={tempVariant.cost_price} onChange={e => setTempVariant({...tempVariant, cost_price: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-3">
+                                      <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Price" value={tempVariant.price} onChange={e => setTempVariant({...tempVariant, price: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-2">
+                                      <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Qty" value={tempVariant.stock} onChange={e => setTempVariant({...tempVariant, stock: e.target.value})} />
+                                    </div>
+                                    <div className="col-span-1">
+                                      <button type="button" onClick={handleAddVariant} className="w-full bg-black text-white rounded-lg text-xs font-bold h-[34px] flex items-center justify-center">Add</button>
+                                    </div>
+                                </div>
 
-                               <div className="space-y-2 max-h-40 overflow-y-auto">
-                                   {variants.map((v, i) => (
-                                     <div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs">
-                                         <span className="font-medium">{v.name}</span>
-                                         <div className="flex gap-3 text-gray-500">
-                                             <span className="text-gray-400 text-[10px]">Cost: {Number(v.cost_price).toFixed(2)}</span>
-                                             <span>LKR {Number(v.price).toFixed(2)}</span>
-                                             <span className="font-bold text-gray-900 border-l pl-3">Qty: {v.stock}</span>
-                                             <span className="text-green-600 font-bold ml-2">+{Number(v.price - v.cost_price).toLocaleString()}</span>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {variants.map((v, i) => (
+                                     <div key={i} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                         {/* EDITABLE INPUTS WITH FALLBACK TO EMPTY STRING */}
+                                         <div className="col-span-3">
+                                            <input value={v.name || ""} onChange={(e) => updateVariant(i, 'name', e.target.value)} className="w-full bg-transparent font-medium focus:bg-gray-50 outline-none rounded p-1" />
                                          </div>
-                                         <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                                         <div className="col-span-3 flex items-center gap-1 text-gray-400">
+                                            <span>Cost:</span>
+                                            <input type="number" value={v.cost_price ?? ""} onChange={(e) => updateVariant(i, 'cost_price', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1" />
+                                         </div>
+                                         <div className="col-span-3 flex items-center gap-1">
+                                            <span>LKR</span>
+                                            <input type="number" value={v.price ?? ""} onChange={(e) => updateVariant(i, 'price', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1 font-bold text-gray-900" />
+                                         </div>
+                                         <div className="col-span-2 flex items-center gap-1 border-l pl-2 font-bold text-gray-900">
+                                            <span>Qty:</span>
+                                            <input type="number" value={v.stock ?? ""} onChange={(e) => updateVariant(i, 'stock', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1" />
+                                         </div>
+                                         <div className="col-span-1 flex justify-end">
+                                            <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                                         </div>
                                      </div>
-                                   ))}
-                               </div>
-                               {variants.length === 0 && <div className="text-center py-2"><p className="text-xs text-gray-400">No variants added. Simple product stock:</p><input type="number" className="mt-2 w-24 text-center border rounded py-1 text-sm mx-auto block" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" /></div>}</div>
-                               <div><label className="text-xs font-bold text-gray-500 mb-1 block">How to Use</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.usage_info} onChange={e => setForm({...form, usage_info: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Ingredients</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.ingredients} onChange={e => setForm({...form, ingredients: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Tags</label><input className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
-                           </div>
-                       </div>
-                       
-                       <div className="pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={cancelEditing} className="px-6 py-3 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition">Cancel</button><button type="submit" disabled={uploading} className={`px-8 py-3 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center gap-2 ${editingId ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-black hover:bg-gray-800'}`}>{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingId ? "Update Product" : "Save Product"}</button></div>
+                                    ))}
+                                </div>
+                                {variants.length === 0 && <div className="text-center py-2"><p className="text-xs text-gray-400">No variants added. Simple product stock:</p><input type="number" className="mt-2 w-24 text-center border rounded py-1 text-sm mx-auto block" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" /></div>}</div>
+                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">How to Use</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.usage_info} onChange={e => setForm({...form, usage_info: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Ingredients</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.ingredients} onChange={e => setForm({...form, ingredients: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Tags</label><input className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
+                            </div>
+                        </div>
+                        
+                        <div className="pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={cancelEditing} className="px-6 py-3 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition">Cancel</button><button type="submit" disabled={uploading} className={`px-8 py-3 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center gap-2 ${editingId ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-black hover:bg-gray-800'}`}>{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingId ? "Update Product" : "Save Product"}</button></div>
                     </form>
                 </div>
             </div>
@@ -745,21 +769,21 @@ export default function AdminPage() {
                             <div className="divide-y divide-gray-100">
                                 {todayOrders.map(order => (
                                     <div key={order.id} className="group">
-                                        <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
-                                                <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
-                                            </div>
-                                            <div className="flex items-center gap-6">
-                                                <div className="text-right">
-                                                    <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
-                                                    <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                            <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
+                                                    <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
                                                 </div>
-                                                <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
-                                                {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                <div className="flex items-center gap-6">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                        <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                                    </div>
+                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                </div>
                                             </div>
-                                        </div>
-                                        {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p><button onClick={(e) => { e.stopPropagation(); generateReceipt(order); }} className="mt-4 text-xs font-bold bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"><Printer className="w-3 h-3" /> Print Receipt</button></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                            {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p><button onClick={(e) => { e.stopPropagation(); generateReceipt(order); }} className="mt-4 text-xs font-bold bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"><Printer className="w-3 h-3" /> Print Receipt</button></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
                                     </div>
                                 ))}
                             </div>
@@ -792,35 +816,35 @@ export default function AdminPage() {
                                                 </div>
                                                 <div className="flex items-center gap-6">
                                                     <div className="text-right">
-                                                      <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
-                                                      <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                                        <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                        <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
                                                     </div>
                                                     <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
                                                     {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
                                                 </div>
                                             </div>
-                                            {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p><button onClick={(e) => { e.stopPropagation(); generateReceipt(order); }} className="mt-4 text-xs font-bold bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"><Printer className="w-3 h-3" /> Print Receipt</button></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                            {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
                                         </div>
                                     ))}
                                 </div>
                                 {/* PAGINATION CONTROLS */}
                                 {pastOrders.length > ITEMS_PER_PAGE && (
                                     <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50">
-                                        <button 
-                                            disabled={historyPage === 1}
-                                            onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                                            className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
-                                        >
-                                            <ChevronLeft className="w-4 h-4" /> Previous
-                                        </button>
-                                        <span className="text-xs font-medium text-gray-500">Page {historyPage} of {totalHistoryPages}</span>
-                                        <button 
-                                            disabled={historyPage === totalHistoryPages}
-                                            onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
-                                            className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
-                                        >
-                                            Next <ChevronRight className="w-4 h-4" />
-                                        </button>
+                                            <button 
+                                                disabled={historyPage === 1}
+                                                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                                className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" /> Previous
+                                            </button>
+                                            <span className="text-xs font-medium text-gray-500">Page {historyPage} of {totalHistoryPages}</span>
+                                            <button 
+                                                disabled={historyPage === totalHistoryPages}
+                                                onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                                                className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
+                                            >
+                                                Next <ChevronRight className="w-4 h-4" />
+                                            </button>
                                     </div>
                                 )}
                             </div>
@@ -847,18 +871,18 @@ export default function AdminPage() {
                             {cancelledOrdersList.map(order => (
                                 <div key={order.id} className="group">
                                     <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition bg-red-50/30 hover:bg-red-50 cursor-pointer" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs bg-red-500">C</div>
-                                            <div><h3 className="text-sm font-bold line-through text-gray-500">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
-                                        </div>
-                                        <div className="flex items-center gap-6">
-                                            <div className="text-right">
-                                              <p className="text-sm font-bold font-mono text-gray-400 line-through">{order.currency} {order.total_price.toLocaleString()}</p>
-                                              <p className="text-[10px] font-bold text-red-400 bg-red-50 px-1 rounded inline-block">Lost Profit: {calculateOrderProfit(order).toLocaleString()}</p>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs bg-red-500">C</div>
+                                                <div><h3 className="text-sm font-bold line-through text-gray-500">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
                                             </div>
-                                            <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
-                                            {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
-                                        </div>
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold font-mono text-gray-400 line-through">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                    <p className="text-[10px] font-bold text-red-400 bg-red-50 px-1 rounded inline-block">Lost Profit: {calculateOrderProfit(order).toLocaleString()}</p>
+                                                </div>
+                                                <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
+                                                {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                            </div>
                                     </div>
                                     {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items (Returned to Stock)</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono text-gray-400 line-through">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
                                 </div>
