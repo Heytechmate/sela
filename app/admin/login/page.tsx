@@ -1,83 +1,89 @@
-"use client";
-
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock, ArrowRight } from "lucide-react";
+import { Loader2, LayoutGrid, ArrowRight } from "lucide-react";
+import Image from "next/image";
 
-export default function AdminLogin() {
+// !!! THIS LINE FIXES THE BUILD ERROR !!!
+export const dynamic = "force-dynamic";
+
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (error) {
-        alert("Login failed: " + error.message);
-      } else {
-        router.push("/admin"); // Redirect to dashboard on success
-      }
-    } catch (err) {
-      console.error(err);
-      alert("An unexpected error occurred.");
-    } finally {
+    if (error) {
+      alert(error.message);
       setLoading(false);
+    } else {
+      router.push("/admin");
+      router.refresh();
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white max-w-md w-full rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        {/* Header */}
         <div className="bg-black p-8 text-center">
-          <div className="mx-auto bg-white/10 w-12 h-12 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm">
-            <Lock className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-widest uppercase">Admin Portal</h1>
-          <p className="text-white/60 text-xs mt-2">Secure Access Only</p>
+            <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/20">
+                <LayoutGrid className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Welcome Back</h1>
+            <p className="text-gray-400 text-sm mt-2">Sign in to manage your store</p>
         </div>
 
-        <form onSubmit={handleLogin} className="p-8 space-y-6">
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Email Address</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none transition"
-              placeholder="admin@sela.com"
-            />
-          </div>
+        {/* Form */}
+        <div className="p-8">
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                placeholder="admin@selacosmetics.com"
+                required
+              />
+            </div>
 
-          <div>
-            <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none transition"
-              placeholder="••••••••"
-            />
-          </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-500 mb-2 block">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all"
+                placeholder="••••••••"
+                required
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-black text-white py-3 rounded-lg text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition flex items-center justify-center gap-2 shadow-lg"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-black text-white font-bold text-sm uppercase tracking-wider py-4 rounded-xl shadow-lg hover:bg-gray-800 transform active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4" /></>}
+            </button>
+          </form>
+        </div>
+        
+        <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-400 font-medium">Secured by Supabase Auth</p>
+        </div>
       </div>
     </div>
   );
