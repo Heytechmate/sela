@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    // This still works to ignore Type errors
+    // This setting IS still supported and will ignore Type errors
     ignoreBuildErrors: true,
   },
-  // We removed the 'eslint' block because it is now handled in package.json
+  // The 'eslint' block is removed because we handle it in package.json now
 };
 
 export default nextConfig;
