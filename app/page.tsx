@@ -2,11 +2,13 @@
 
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
+import jsPDF from "jspdf"; 
 import { 
-  Search, ShoppingBag, X, Minus, Plus, Menu, ArrowRight, Loader2, Star, 
-  CheckCircle, AlertCircle, MessageCircle 
+  Search, ShoppingBag, X, Minus, Plus, ArrowRight, Loader2, Star, 
+  CheckCircle, AlertCircle, MessageCircle, ChevronLeft, ChevronRight,
+  ClipboardList, Clock, Sparkles, Sun, Moon, User, Printer, Trash2
 } from "lucide-react";
 
 // --- TYPES ---
@@ -24,8 +26,6 @@ type Product = {
   brand?: string;
   gallery?: string[];
   variants?: Variant[];
-  usage_info?: string;
-  ingredients?: string;
   stock: number;
   is_on_sale?: boolean;
 };
@@ -46,15 +46,124 @@ const SL_CITIES = [
   "Ratnapura", "Avissawella", "Kegalle", "Badulla", "Bandarawela", "Nuwara Eliya"
 ];
 
+const DEFAULT_HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?q=80&w=2574&auto=format&fit=crop", 
+  "https://images.unsplash.com/photo-1596462502278-27bfdd403348?q=80&w=2574&auto=format&fit=crop", 
+  "https://images.unsplash.com/photo-1556228720-1915d590a362?q=80&w=2574&auto=format&fit=crop"  
+];
+
+// --- 100+ MOTIVATIONAL QUOTES ---
+const MOTIVATIONAL_QUOTES = [
+  "Consistency is the only magic pill.",
+  "Invest in your skin. It is going to represent you for a very long time.",
+  "Your skin is 90% of your selfie.",
+  "Skincare is a marathon, not a sprint.",
+  "Glow is an inside job.",
+  "Healthy skin is always in.",
+  "Self-care is not selfish.",
+  "Beautiful skin requires commitment, not a miracle.",
+  "Filter free is the goal.",
+  "Take time to make your soul happy... and your skin glowing.",
+  "Exfoliate the bad vibes.",
+  "Your skin is an investment, not an expense.",
+  "Sleep, drink water, and treat your skin.",
+  "Glowing skin is a result of proper skincare. It means you can wear less makeup and let your skin shine through.",
+  "Be good to your skin. You’ll wear it every day for the rest of your life.",
+  "Skincare is like dieting. You have to invest time and effort. There is no instant miracle cure.",
+  "Happiness is a habit. So is your skincare.",
+  "Don't forget to drink water and get some sun (with SPF!).",
+  "Confidence breeds beauty.",
+  "Wake up and makeup? No, wake up and skincare.",
+  "The best foundation you can wear is healthy glowing skin.",
+  "I regret taking such good care of my skin. – Said no one ever.",
+  "SPF is your BFF.",
+  "Your skin routine is a bank account. Good choices are good investments.",
+  "May your coffee be strong and your SPF be stronger.",
+  "Facials are my workout.",
+  "Beauty is being comfortable in your own skin.",
+  "You are one facial away from a good mood.",
+  "Last minute skincare is better than no skincare.",
+  "Peace, Love, and Face Masks.",
+  "Less stress, more facials.",
+  "Slay the day, but wash your face first.",
+  "Skincare first, makeup second, smile always.",
+  "Great skin doesn't happen by chance, it happens by appointment.",
+  "Keep calm and moisturize on.",
+  "A little progress each day adds up to big results.",
+  "Respect your skin.",
+  "Trust the process. Your skin is healing.",
+  "Real skin has texture. Real skin has pores. Real skin is beautiful.",
+  "Your skin is the best accessory. Take care of it.",
+  "Every day is a fresh start for your skin.",
+  "Don't let yesterday take up too much of today.",
+  "Small daily improvements are the key to staggering long-term results.",
+  "You glow differently when you take care of yourself.",
+  "Protect your peace. Protect your skin.",
+  "Hydrate. Moisturize. Repeat.",
+  "Self-love looks good on you.",
+  "Routine is what turns a dream into reality.",
+  "Be patient with your skin.",
+  "Beauty begins the moment you decide to be yourself.",
+  "Skin cells turnover every 28 days. As we age this rate decreases.",
+  "Aging is a fact of life. Looking your age is not.",
+  "Sunscreen is the fountain of youth.",
+  "Don't go to bed with your makeup on.",
+  "Your face is your canvas.",
+  "Start your day with a grateful heart and a clean face.",
+  "Love the skin you're in.",
+  "Time spent on yourself is never wasted.",
+  "Cleanse, tone, moisturize, conquer.",
+  "Focus on the good.",
+  "Today is a perfect day to start.",
+  "Discipline is doing what needs to be done, even if you don't want to.",
+  "Your future self will thank you.",
+  "Make yourself a priority.",
+  "Relax, refresh, recharge.",
+  "Inner beauty is great, but a little skincare never hurt.",
+  "Life isn't perfect but your skin can be.",
+  "Serums are magic potions.",
+  "Just keep glowing.",
+  "Don't rush the process.",
+  "Listen to your skin.",
+  "Feed your skin with good ingredients.",
+  "Self-discipline is self-love.",
+  "A healthy outside starts from the inside.",
+  "Stress less, glow more.",
+  "Good things come to those who cleanse.",
+  "Be your own kind of beautiful.",
+  "Let your skin breathe.",
+  "Radiate positivity.",
+  "Embrace your natural beauty.",
+  "You are enough.",
+  "A good skincare routine is the secret to aging gracefully.",
+  "Consistency beats intensity.",
+  "Keep your standards high and your skin clear.",
+  "Face masks and chill.",
+  "Get your glow on.",
+  "Your skin remembers.",
+  "Beauty is power, a smile is its sword.",
+  "Give your skin a drink.",
+  "Be consistent.",
+  "Nature gives you the face you have at twenty; it is up to you to merit the face you have at fifty.",
+  "Dermatologist tested, mother approved.",
+  "Prevention is better than cure.",
+  "Skincare is healthcare.",
+  "The clearer the skin, the clearer the mind.",
+  "It’s not vanity, it’s maintenance.",
+  "You can't buy happiness, but you can buy skincare.",
+  "Keep shining.",
+  "Every step counts.",
+  "Do it for the 'After' photo."
+];
+
 export default function Home() {
+  // --- E-COMMERCE STATE ---
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [activeCategory, setActiveCategory] = useState("All");
   const [showCart, setShowCart] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  // Search
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +173,7 @@ export default function Home() {
     whatsapp: "94770000000",
     bannerText: "Welcome to Sela Cosmetics",
     currency: "LKR",
+    bannerInterval: 5000,
     heroImages: [] as string[],
     regionAssignments: {} as Record<string, string>
   });
@@ -76,77 +186,72 @@ export default function Home() {
   const [activeVariant, setActiveVariant] = useState<Variant | null>(null);
   const [modalQty, setModalQty] = useState(1);
   const [isDescExpanded, setIsDescExpanded] = useState(false); 
-
-  // Checkout State
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [customerDetails, setCustomerDetails] = useState({ name: "", phone: "", city: SL_CITIES[0], address: "" });
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  // Scroll Helper
+  // --- ROUTINE GENERATOR STATE ---
+  const [isRoutineOpen, setIsRoutineOpen] = useState(false);
+  const [routineTab, setRoutineTab] = useState<'profile' | 'am' | 'pm'>('profile');
+  const [routineForm, setRoutineForm] = useState({
+      name: "",
+      skinType: "Normal",
+      wakeTime: "07:00",
+      bedTime: "22:00",
+      amProducts: ['Cleanser', 'SPF 50'] as string[],
+      pmProducts: ['Cleanser', 'Moisturizer'] as string[]
+  });
+  const [newRoutineProduct, setNewRoutineProduct] = useState("");
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const scrollToShop = () => {
     const shopSection = document.getElementById("shop-section");
-    if (shopSection) {
-      shopSection.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  const fetchProducts = async () => {
-    const { data: productsData } = await supabase.from('products').select('*').eq('is_active', true).order('id', { ascending: false });
-    if (productsData) {
-      setProducts(productsData);
-      const allCategories = productsData.map(item => item.category);
-      const hasSaleItems = productsData.some(p => p.is_on_sale);
-      const uniqueCategories = Array.from(new Set(allCategories)).sort();
-      if (hasSaleItems) {
-          setCategories(["All", "SALE", ...uniqueCategories]);
-      } else {
-          setCategories(["All", ...uniqueCategories]);
-      }
-    }
+    if (shopSection) shopSection.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     async function init() {
-      await fetchProducts();
-      const { data: settingsData } = await supabase.from('site_settings').select('*').single();
-      if (settingsData) {
-         setSiteSettings({
-            whatsapp: settingsData.whatsapp,
-            bannerText: settingsData.banner_text,
-            currency: settingsData.currency,
-            heroImages: settingsData.hero_images || [],
-            regionAssignments: settingsData.region_assignments || {}
-         });
-      }
-      setLoading(false);
+      try {
+          const { data: productsData } = await supabase.from('products').select('*').eq('is_active', true).order('id', { ascending: false });
+          if (productsData) {
+            setProducts(productsData);
+            const allCategories = productsData.map(item => item.category);
+            const hasSaleItems = productsData.some(p => p.is_on_sale);
+            const uniqueCategories = Array.from(new Set(allCategories)).sort();
+            setCategories(hasSaleItems ? ["All", "SALE", ...uniqueCategories] : ["All", ...uniqueCategories]);
+          }
+          const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1).maybeSingle();
+          if (settingsData) {
+             setSiteSettings({
+                whatsapp: settingsData.whatsapp,
+                bannerText: settingsData.banner_text,
+                currency: settingsData.currency,
+                bannerInterval: settingsData.banner_interval || 5000,
+                heroImages: settingsData.hero_images || [],
+                regionAssignments: settingsData.region_assignments || {}
+             });
+          }
+      } catch (error) { console.error("Failed to load data:", error); } finally { setLoading(false); }
     }
     init();
-  }, []);
+  }, [supabase]);
+
+  const activeHeroImages = siteSettings.heroImages.length > 0 ? siteSettings.heroImages : DEFAULT_HERO_IMAGES;
 
   useEffect(() => {
-    if (isSearchOpen && searchInputRef.current) {
-        searchInputRef.current.focus();
-    }
-  }, [isSearchOpen]);
-
-  useEffect(() => {
-    if (siteSettings.heroImages.length <= 1) return;
-    const timer = setInterval(() => setCurrentHeroIndex((prev) => (prev + 1) % siteSettings.heroImages.length), 5000); 
+    if (activeHeroImages.length <= 1) return;
+    const timer = setInterval(() => setCurrentHeroIndex((prev) => (prev + 1) % activeHeroImages.length), siteSettings.bannerInterval); 
     return () => clearInterval(timer);
-  }, [siteSettings.heroImages]);
-
-  const getRealStock = (product: Product) => {
-      if (product.variants && product.variants.length > 0) {
-          return product.variants.reduce((acc, v) => acc + (v.stock || 0), 0);
-      }
-      return product.stock;
-  };
+  }, [activeHeroImages.length, siteSettings.bannerInterval]);
 
   const addToCart = (product: Product, quantity = 1, variant: Variant | null = null) => {
     const availableStock = variant ? variant.stock : product.stock;
-    if (availableStock <= 0) return alert("This item is out of stock!");
-    if (quantity > availableStock) return alert(`Only ${availableStock} items available.`);
-
+    if (availableStock <= 0) return alert("Out of stock!");
+    
     const finalPrice = variant ? variant.price : product.price;
     const finalName = variant ? `${product.name} (${variant.name})` : product.name;
 
@@ -154,7 +259,7 @@ export default function Home() {
       const existing = prev.find(item => item.id === product.id && item.name === finalName);
       if (existing) {
         if (existing.quantity + quantity > availableStock) { alert("Max stock reached."); return prev; }
-        return prev.map(item => (item.id === product.id && item.name === finalName) ? { ...item, quantity: item.quantity + quantity, selectedVariant: variant } : item);
+        return prev.map(item => (item.id === product.id && item.name === finalName) ? { ...item, quantity: item.quantity + quantity } : item);
       }
       return [...prev, { ...product, name: finalName, price: finalPrice, quantity: quantity, selectedVariant: variant }];
     });
@@ -187,89 +292,218 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
-  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  const filteredProducts = products.filter(p => {
-      const matchesCategory = activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory;
-      const matchesSearch = searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-  });
-
-  const heroImageSrc = siteSettings.heroImages.length > 0 ? siteSettings.heroImages[currentHeroIndex] : "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?q=80&w=2574&auto=format&fit=crop";
-
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsPlacingOrder(true);
-    try {
-        const fullAddress = `${customerDetails.city}, ${customerDetails.address}`;
-        const { data: orderData, error } = await supabase.from('orders').insert({
-            customer_name: customerDetails.name,
-            customer_phone: customerDetails.phone,
-            customer_address: fullAddress,
-            items: cart.map(i => ({ name: i.name, qty: i.quantity, price: i.price, variant: i.selectedVariant?.name || "Standard" })),
-            total_price: cartTotal,
-            currency: siteSettings.currency,
-            status: 'Pending'
-        }).select().single();
-
-        if (error) throw error;
-
-        for (const item of cart) {
-            const { data: currentProduct } = await supabase.from('products').select('*').eq('id', item.id).single();
-            if (!currentProduct) continue;
-            if (currentProduct.variants && currentProduct.variants.length > 0 && item.selectedVariant) {
-                const updatedVariants = currentProduct.variants.map((v: Variant) => v.name === item.selectedVariant!.name ? { ...v, stock: Math.max(0, v.stock - item.quantity) } : v);
-                const newTotalStock = updatedVariants.reduce((sum: number, v: Variant) => sum + v.stock, 0);
-                await supabase.from('products').update({ variants: updatedVariants, stock: newTotalStock }).eq('id', item.id);
-            } else {
-                await supabase.from('products').update({ stock: Math.max(0, currentProduct.stock - item.quantity) }).eq('id', item.id);
-            }
-        }
-
-        const receipt = `🧾 *ORDER #${orderData.id}*\n👤 ${customerDetails.name}\n📍 ${customerDetails.city}\n💰 Total: ${siteSettings.currency} ${cartTotal.toLocaleString()}`;
-        const selectedCity = customerDetails.city.trim();
-        const routingMap = siteSettings.regionAssignments || {};
-        const targetPhone = routingMap[selectedCity] || siteSettings.whatsapp;
-
-        setCart([]);
-        setIsCheckoutOpen(false);
-        setIsPlacingOrder(false);
-        window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(receipt)}`, '_blank');
-        await fetchProducts();
-
-    } catch (err: any) {
-        alert("Error placing order.");
-        setIsPlacingOrder(false);
-    }
+  // --- ROUTINE LOGIC ---
+  const addRoutineProduct = (type: 'am' | 'pm') => {
+    if (!newRoutineProduct.trim()) return;
+    setRoutineForm(prev => ({
+      ...prev,
+      [type === 'am' ? 'amProducts' : 'pmProducts']: [...(type === 'am' ? prev.amProducts : prev.pmProducts), newRoutineProduct]
+    }));
+    setNewRoutineProduct('');
   };
 
-  const getTruncatedText = (text: string, limit: number) => text.length <= limit ? text : text.substring(0, limit) + "...";
+  const removeRoutineProduct = (type: 'am' | 'pm', index: number) => {
+    setRoutineForm(prev => ({
+      ...prev,
+      [type === 'am' ? 'amProducts' : 'pmProducts']: (type === 'am' ? prev.amProducts : prev.pmProducts).filter((_, i) => i !== index)
+    }));
+  };
+
+  // --- PROFESSIONAL LANDSCAPE PDF GENERATOR ---
+  const generateRoutinePDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    
+    // --- HELPER VARIABLES ---
+    const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
+    const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
+    const margin = 12; // Slightly smaller margin to maximize space
+    const contentWidth = pageWidth - (margin * 2);
+    
+    // Grid Calculations (Wider now!)
+    const dayWidth = 5.5; // Bigger circles for landscape
+    const gridStartX = pageWidth - margin - (dayWidth * 31); // Where circles start
+    const nameWidth = gridStartX - margin - 5; // Lots of space for names
+    
+    // Pick a Random Quote
+    const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+
+    let currentY = 15;
+
+    // --- 1. HEADER SIDE-BY-SIDE ---
+    // In landscape, we put Brand on Left, Details on Right to save vertical space
+    
+    // Left: Brand
+    doc.setFont("times", "bold");
+    doc.setFontSize(24);
+    doc.text("SELA COSMETICS", margin, currentY + 5);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setCharSpace(2);
+    doc.text("DAILY TRACKER", margin, currentY + 10);
+    
+    // Right: User Details & Month
+    doc.setCharSpace(0);
+    doc.setFontSize(10);
+    doc.text("PREPARED FOR:", pageWidth - margin - 80, currentY);
+    doc.setFont("helvetica", "bold");
+    doc.text(routineForm.name.toUpperCase() || "VALUED CUSTOMER", pageWidth - margin - 45, currentY);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.line(pageWidth - margin - 45, currentY + 1, pageWidth - margin, currentY + 1);
+
+    doc.setFont("helvetica", "normal");
+    doc.text("MONTH:", pageWidth - margin - 80, currentY + 8);
+    doc.line(pageWidth - margin - 45, currentY + 9, pageWidth - margin, currentY + 9);
+
+    currentY += 20; // Move down for cards
+
+    // --- HELPER FUNCTION TO DRAW A WIDE CARD ---
+    const drawRoutineCard = (title: string, products: string[], startY: number, iconType: 'sun' | 'moon') => {
+      const headerHeight = 12;
+      const rowHeight = 9; // Slightly tighter vertically
+      // Force at least 3 rows
+      const displayProducts = products.length > 0 ? products : ["", "", ""];
+      const cardHeight = headerHeight + (displayProducts.length * rowHeight) + 4;
+      
+      // Card Container
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, startY, contentWidth, cardHeight, 3, 3, 'S');
+
+      // Title & Icon
+      const textY = startY + 8;
+      doc.setFont("times", "bold");
+      doc.setFontSize(12);
+      doc.text(title, margin + 12, textY);
+      
+      // Icon
+      doc.setLineWidth(0.5);
+      if (iconType === 'sun') {
+        doc.circle(margin + 6, textY - 1.2, 2, 'S');
+        // Sun rays (simple lines)
+        doc.setLineWidth(0.1);
+        doc.line(margin + 6, textY - 4.2, margin + 6, textY - 3.2); // Top
+        doc.line(margin + 6, textY + 0.8, margin + 6, textY + 1.8); // Bottom
+        doc.line(margin + 3, textY - 1.2, margin + 4, textY - 1.2); // Left
+        doc.line(margin + 8, textY - 1.2, margin + 9, textY - 1.2); // Right
+      } else {
+        doc.setFillColor(0);
+        doc.circle(margin + 6, textY - 1.2, 2, 'F');
+        doc.setFillColor(255);
+        doc.circle(margin + 7, textY - 2.2, 1.8, 'F'); // Crescent cut
+      }
+
+      // Days Grid Numbers
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+      doc.setTextColor(120);
+      for (let i = 0; i < 31; i++) {
+        const xPos = gridStartX + (i * dayWidth) + (dayWidth/2);
+        // Label only 1, 5, 10...
+        if ((i + 1) % 5 === 0 || i === 0) {
+            doc.text((i + 1).toString(), xPos, textY, { align: "center" });
+        }
+      }
+      doc.setTextColor(0);
+
+      // Separator
+      doc.setLineWidth(0.1);
+      doc.line(margin, startY + headerHeight, pageWidth - margin, startY + headerHeight);
+
+      // Rows
+      let rowY = startY + headerHeight + 6;
+      doc.setFontSize(10);
+      
+      displayProducts.forEach((prod) => {
+        // Line Guide
+        doc.setDrawColor(220);
+        doc.line(margin + 5, rowY + 1, gridStartX - 5, rowY + 1);
+        doc.setDrawColor(0);
+
+        // Truncate Text
+        let printText = prod;
+        if (doc.getTextWidth(printText) > nameWidth) {
+           while (doc.getTextWidth(printText + "...") > nameWidth && printText.length > 0) {
+               printText = printText.slice(0, -1);
+           }
+           printText += "...";
+        }
+
+        doc.setFont("helvetica", "normal");
+        doc.text(printText, margin + 5, rowY);
+        
+        // Circles
+        for (let i = 0; i < 31; i++) {
+          const circleX = gridStartX + (i * dayWidth) + (dayWidth/2);
+          doc.circle(circleX, rowY - 1, 1.8, 'S'); // Larger 1.8mm circles
+        }
+        
+        rowY += rowHeight;
+      });
+
+      return cardHeight;
+    };
+
+    // --- DRAW CARDS ---
+    const amHeight = drawRoutineCard("MORNING ROUTINE", routineForm.amProducts, currentY, 'sun');
+    currentY += amHeight + 8; // Small gap
+
+    const pmHeight = drawRoutineCard("EVENING ROUTINE", routineForm.pmProducts, currentY, 'moon');
+    currentY += pmHeight + 12;
+
+    // --- RANDOM MOTIVATION QUOTE (Centered, Big) ---
+    doc.setFont("times", "italic");
+    doc.setFontSize(14);
+    doc.setTextColor(80); // Dark Gray
+    doc.text(`“${randomQuote}”`, pageWidth / 2, currentY, { align: "center" });
+
+    // --- FOOTER ---
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(150);
+    doc.text("www.selacosmetics.com", pageWidth / 2, pageHeight - 8, { align: "center" });
+
+    doc.save(`Sela_Routine_${routineForm.name || "Tracker"}.pdf`);
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault(); setIsPlacingOrder(true);
+    try {
+        const fullAddress = `${customerDetails.city}, ${customerDetails.address}`;
+        const { error } = await supabase.from('orders').insert({
+            customer_name: customerDetails.name, customer_phone: customerDetails.phone, customer_address: fullAddress,
+            items: cart.map(i => ({ name: i.name, qty: i.quantity, price: i.price, variant: i.selectedVariant?.name || "Standard" })),
+            total_price: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+            currency: siteSettings.currency, status: 'Pending'
+        });
+        if (error) throw error;
+        
+        // WhatsApp Redirect
+        const receipt = `ｧｾ *ORDER*\n側 ${customerDetails.name}\n腸 Total: ${siteSettings.currency} ${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}`;
+        const targetPhone = (siteSettings.regionAssignments || {})[customerDetails.city] || siteSettings.whatsapp;
+        setCart([]); setIsCheckoutOpen(false); setIsPlacingOrder(false);
+        window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(receipt)}`, '_blank');
+    } catch (err) { alert("Error placing order."); setIsPlacingOrder(false); }
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const filteredProducts = products.filter(p => (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())));
 
   return (
-    <main className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white pb-20">
+    <main className="min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white pb-20 relative">
       
       <div className="bg-black text-white text-[10px] md:text-xs font-bold text-center py-2 tracking-widest uppercase">
         {siteSettings.bannerText}
       </div>
 
-      {/* HEADER */}
       <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 h-16">
         <div className="max-w-7xl mx-auto px-6 h-full flex justify-between items-center relative">
-          
           <div className="flex items-center gap-4 z-20">
-            {/* SEARCH BAR - ADJUSTED WIDTH FOR MOBILE (w-32) TO PREVENT OVERLAP */}
             <div className={`flex items-center transition-all duration-300 ${isSearchOpen ? 'bg-gray-100 rounded-full pl-3 pr-2 py-1 w-32 md:w-64' : 'w-5'}`}>
                 {isSearchOpen ? (
                     <>
-                        <input 
-                            ref={searchInputRef}
-                            type="text" 
-                            placeholder="Search..." 
-                            className="bg-transparent border-none outline-none text-sm w-full"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => { if(e.key === 'Enter') scrollToShop(); }}
-                        />
+                        <input ref={searchInputRef} type="text" placeholder="Search..." className="bg-transparent border-none outline-none text-sm w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         <button onClick={() => { setIsSearchOpen(false); setSearchQuery(""); }}><X className="w-4 h-4 text-gray-500 hover:text-black"/></button>
                     </>
                 ) : (
@@ -277,118 +511,70 @@ export default function Home() {
                 )}
             </div>
           </div>
-
-          {/* LOGO - HIDES ON MOBILE WHEN SEARCH IS OPEN */}
           <div className={`absolute left-1/2 -translate-x-1/2 transition-opacity duration-200 ${isSearchOpen ? 'opacity-0 pointer-events-none md:opacity-100' : 'opacity-100'}`}>
             <h1 className="text-2xl font-bold tracking-[0.2em] uppercase font-serif cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Sela.</h1>
           </div>
-
           <div className="flex items-center gap-6 z-20">
             <div className="relative cursor-pointer" onClick={() => setShowCart(true)}>
               <ShoppingBag className="w-5 h-5" />
-              {cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] w-3.5 h-3.5 flex items-center justify-center rounded-full">
-                  {cart.reduce((a, b) => a + b.quantity, 0)}
-                </span>
-              )}
+              {cart.length > 0 && <span className="absolute -top-1 -right-1 bg-black text-white text-[10px] w-3.5 h-3.5 flex items-center justify-center rounded-full">{cart.reduce((a, b) => a + b.quantity, 0)}</span>}
             </div>
           </div>
         </div>
       </nav>
 
-      <section className="relative h-[60vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden">
+      {/* HERO SECTION */}
+      <section className="relative h-[60vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
+        <button onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} className="absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md"><ChevronLeft className="w-6 h-6" /></button>
+        <button onClick={() => setCurrentHeroIndex(prev => (prev + 1) % activeHeroImages.length)} className="absolute right-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md"><ChevronRight className="w-6 h-6" /></button>
         <AnimatePresence mode="wait">
             <motion.div key={currentHeroIndex} initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }} className="absolute inset-0 bg-gray-200">
-                <Image src={heroImageSrc} alt="Hero" fill className="object-cover opacity-90" priority />
+                <Image src={activeHeroImages[currentHeroIndex]} alt="Hero" fill className="object-cover opacity-90" priority />
             </motion.div>
         </AnimatePresence>
         <div className="relative z-10 text-center space-y-4 max-w-lg px-4">
           <h2 className="text-4xl md:text-6xl font-serif text-white mix-blend-difference drop-shadow-sm">THE NEW STANDARD</h2>
           <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md">Science-backed formulations for the modern minimalist.</p>
-          <button onClick={scrollToShop} className="bg-white text-black px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300">Shop Collection</button>
+          <div className="flex gap-3 justify-center">
+             <button onClick={scrollToShop} className="bg-white text-black px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300">Shop Collection</button>
+             <button onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} className="bg-black/80 backdrop-blur text-white border border-white/20 px-6 py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center gap-2">
+                <Sparkles className="w-3 h-3" /> Free Routine
+             </button>
+          </div>
         </div>
       </section>
 
+      {/* SHOP SECTION */}
       <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
         <div className="flex justify-center gap-8 overflow-x-auto no-scrollbar px-6">
           {categories.map((cat) => (
-            <button 
-              key={cat} 
-              onClick={() => setActiveCategory(cat)} 
-              className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap pb-1 border-b-2 transition-all duration-300 ${activeCategory === cat ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'} ${cat === 'SALE' ? 'text-red-600 border-red-600' : ''}`}
-            >
-              {cat}
-            </button>
+            <button key={cat} onClick={() => setActiveCategory(cat)} className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap pb-1 border-b-2 transition-all duration-300 ${activeCategory === cat ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'} ${cat === 'SALE' ? 'text-red-600 border-red-600' : ''}`}>{cat}</button>
           ))}
         </div>
       </div>
 
       <section className="max-w-7xl mx-auto px-4 md:px-6 py-12">
-        {loading ? (
-          <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin" /></div>
-        ) : (
+        {loading ? <div className="flex justify-center py-32"><Loader2 className="w-6 h-6 animate-spin" /></div> : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-12">
-            {filteredProducts.length === 0 ? (
-                <div className="col-span-full text-center py-20 text-gray-400">
-                    <p>No products found.</p>
-                </div>
-            ) : (
-                filteredProducts.map((product) => {
-                const realStock = getRealStock(product);
-                const isSoldOut = realStock <= 0;
-                
+            {filteredProducts.map((product) => {
+                const isSoldOut = (product.variants && product.variants.length > 0 ? product.variants.reduce((a,v)=>a+(v.stock||0),0) : product.stock) <= 0;
                 return (
-                    <div 
-                    key={product.id} 
-                    className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`}
-                    onClick={() => !isSoldOut && openProduct(product)}
-                    >
+                    <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
                     <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
                         <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
-                        
-                        {product.is_on_sale && !isSoldOut && (
-                            <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">
-                                Sale
-                            </div>
-                        )}
-
-                        {isSoldOut && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] z-10">
-                                <span className="bg-white text-black text-xs font-bold px-4 py-2 uppercase tracking-widest border border-black">Sold Out</span>
-                            </div>
-                        )}
-
-                        {/* QUICK ADD - NOW VISIBLE ON MOBILE BY DEFAULT */}
-                        {!isSoldOut && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); addToCart(product); }} 
-                            className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0"
-                        >
-                            Quick Add
-                        </button>
-                        )}
+                        {product.is_on_sale && !isSoldOut && <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">Sale</div>}
+                        {!isSoldOut && <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0">Quick Add</button>}
                     </div>
                     <div className="flex flex-col gap-1">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 group-hover:underline decoration-1 underline-offset-4 line-clamp-1">{product.name}</h3>
-                        
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 line-clamp-1">{product.name}</h3>
                         <div className="flex flex-col items-start gap-0.5">
-                            {/* ORIGINAL PRICE (STRIKETHROUGH) - DISPLAYED FIRST */}
-                            {product.is_on_sale && product.original_price ? (
-                                <span className="text-[10px] text-gray-400 line-through">
-                                    Was {siteSettings.currency} {product.original_price.toLocaleString()}
-                                </span>
-                            ) : null}
-
-                            {/* NEW SELLING PRICE (HIGHLIGHTED) */}
-                            <p className={`text-sm font-medium ${product.is_on_sale ? 'text-red-600 font-bold' : ''}`}>
-                                {siteSettings.currency} {product.price.toLocaleString()}
-                            </p>
+                            {product.is_on_sale && product.original_price && <span className="text-[10px] text-gray-400 line-through">Was {siteSettings.currency} {product.original_price.toLocaleString()}</span>}
+                            <p className={`text-sm font-medium ${product.is_on_sale ? 'text-red-600 font-bold' : ''}`}>{siteSettings.currency} {product.price.toLocaleString()}</p>
                         </div>
                     </div>
                     </div>
                 );
-                })
-            )}
+            })}
           </div>
         )}
       </section>
@@ -399,31 +585,24 @@ export default function Home() {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowCart(false)} className="fixed inset-0 bg-black/40 z-[60] backdrop-blur-sm" />
             <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "tween", duration: 0.3 }} className="fixed top-0 right-0 h-full w-full md:w-[400px] bg-white z-[70] shadow-2xl flex flex-col">
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h2 className="text-sm font-bold uppercase tracking-widest">Shopping Bag</h2>
-                <button onClick={() => setShowCart(false)}><X className="w-5 h-5" /></button>
-              </div>
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center"><h2 className="text-sm font-bold uppercase tracking-widest">Shopping Bag</h2><button onClick={() => setShowCart(false)}><X className="w-5 h-5" /></button></div>
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                 {cart.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4"><ShoppingBag className="w-10 h-10 opacity-20" /><p className="text-sm uppercase tracking-wider">Empty</p></div>
-                 ) : (
-                    cart.map((item, idx) => (
+                 {cart.map((item, idx) => (
                       <div key={`${item.id}-${idx}`} className="flex gap-4">
                         <div className="relative w-20 h-24 bg-gray-100 shrink-0"><Image src={item.image_url} alt={item.name} fill className="object-cover" unoptimized /></div>
                         <div className="flex-1 flex flex-col justify-between py-1">
                           <h3 className="text-sm font-bold uppercase line-clamp-1">{item.name}</h3>
                           <div className="flex justify-between items-center">
-                             <div className="flex items-center border border-gray-200"><button onClick={() => removeFromCart(item.id, item.name)} className="px-2 py-1 hover:bg-gray-50"><Minus className="w-3 h-3" /></button><span className="text-xs font-bold w-6 text-center">{item.quantity}</span><button onClick={() => addToCart(item, 1, item.selectedVariant)} className="px-2 py-1 hover:bg-gray-50"><Plus className="w-3 h-3" /></button></div>
+                             <div className="flex items-center border border-gray-200"><button onClick={() => removeFromCart(item.id, item.name)} className="px-2 py-1"><Minus className="w-3 h-3" /></button><span className="text-xs font-bold w-6 text-center">{item.quantity}</span><button onClick={() => addToCart(item, 1, item.selectedVariant)} className="px-2 py-1"><Plus className="w-3 h-3" /></button></div>
                              <p className="text-sm font-medium">{siteSettings.currency} {(item.price * item.quantity).toLocaleString()}</p>
                           </div>
                         </div>
                       </div>
-                    ))
-                 )}
+                 ))}
               </div>
               <div className="p-6 border-t border-gray-100 bg-gray-50">
                  <div className="flex justify-between items-end mb-4"><span className="text-xs font-bold uppercase text-gray-500">Total</span><span className="text-xl font-bold font-serif">{siteSettings.currency} {cartTotal.toLocaleString()}</span></div>
-                 <button onClick={() => setIsCheckoutOpen(true)} disabled={cart.length === 0} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-gray-900 transition disabled:opacity-50 flex items-center justify-center gap-2">Checkout <ArrowRight className="w-4 h-4" /></button>
+                 <button onClick={() => setIsCheckoutOpen(true)} disabled={cart.length === 0} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-gray-900 transition flex items-center justify-center gap-2">Checkout <ArrowRight className="w-4 h-4" /></button>
               </div>
             </motion.div>
           </>
@@ -438,22 +617,100 @@ export default function Home() {
              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden z-[90]">
                 <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center"><h2 className="text-sm font-bold uppercase tracking-widest flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /> Finalize Order</h2><button onClick={() => setIsCheckoutOpen(false)}><X className="w-5 h-5" /></button></div>
                 <form onSubmit={handlePlaceOrder} className="p-8 space-y-4">
-                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Full Name</label><input required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none" placeholder="John Doe" value={customerDetails.name} onChange={(e) => setCustomerDetails({...customerDetails, name: e.target.value})} /></div>
-                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Phone Number</label><input required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none" placeholder="077 123 4567" value={customerDetails.phone} onChange={(e) => setCustomerDetails({...customerDetails, phone: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Full Name</label><input required type="text" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none" value={customerDetails.name} onChange={(e) => setCustomerDetails({...customerDetails, name: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Phone</label><input required type="tel" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none" value={customerDetails.phone} onChange={(e) => setCustomerDetails({...customerDetails, phone: e.target.value})} /></div>
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Select City / Area</label>
-                        <select 
-                            required 
-                            className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none"
-                            value={customerDetails.city}
-                            onChange={(e) => setCustomerDetails({...customerDetails, city: e.target.value})}
-                        >
+                        <label className="text-xs font-bold text-gray-500 uppercase block mb-2">City</label>
+                        <select required className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none" value={customerDetails.city} onChange={(e) => setCustomerDetails({...customerDetails, city: e.target.value})}>
                             {SL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
                         </select>
                     </div>
-                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Street Address / Details</label><textarea required className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none h-24" placeholder="123 Lotus Rd, Near the temple..." value={customerDetails.address} onChange={(e) => setCustomerDetails({...customerDetails, address: e.target.value})} /></div>
-                    <div className="pt-4 border-t border-gray-100 text-center"><p className="text-xs text-gray-400 mb-4">Stock will be reserved upon confirmation.</p><button type="submit" disabled={isPlacingOrder} className="w-full bg-black text-white py-3 rounded-lg text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition flex items-center justify-center gap-2">{isPlacingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} Confirm & Send Receipt</button></div>
+                    <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Address</label><textarea required className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-black outline-none h-24" value={customerDetails.address} onChange={(e) => setCustomerDetails({...customerDetails, address: e.target.value})} /></div>
+                    <div className="pt-4 border-t border-gray-100 text-center"><button type="submit" disabled={isPlacingOrder} className="w-full bg-black text-white py-3 rounded-lg text-sm font-bold uppercase tracking-widest hover:bg-gray-800 transition flex items-center justify-center gap-2">{isPlacingOrder ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} Confirm Order</button></div>
                 </form>
+             </motion.div>
+           </div>
+        )}
+      </AnimatePresence>
+
+      {/* TABBED ROUTINE GENERATOR MODAL */}
+      <AnimatePresence>
+        {isRoutineOpen && (
+           <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRoutineOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh]">
+                
+                {/* Header */}
+                <div className="bg-black text-white p-6 relative">
+                  <button onClick={() => setIsRoutineOpen(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                  <h2 className="text-xl font-bold tracking-tight">Build Your Routine</h2>
+                  <p className="text-sm text-gray-400 mt-1">Get a free, personalized schedule PDF instantly.</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="px-6 pt-6 shrink-0">
+                  <div className="flex bg-gray-100 p-1 rounded-xl">
+                    <button onClick={() => setRoutineTab('profile')} className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-lg transition-all ${routineTab === 'profile' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-black'}`}><User className="w-4 h-4" /> Setup</button>
+                    <button onClick={() => setRoutineTab('am')} className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-lg transition-all ${routineTab === 'am' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-black'}`}><Sun className="w-4 h-4" /> Morning</button>
+                    <button onClick={() => setRoutineTab('pm')} className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-lg transition-all ${routineTab === 'pm' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-black'}`}><Moon className="w-4 h-4" /> Evening</button>
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="p-6 overflow-y-auto flex-1">
+                    {routineTab === 'profile' && (
+                        <div className="space-y-5 animate-in slide-in-from-left-4 duration-300">
+                            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">Your Name</label><input type="text" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-black" value={routineForm.name} onChange={(e) => setRoutineForm({...routineForm, name: e.target.value})} placeholder="e.g. Sarah" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">Wake Up</label><input type="time" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none" value={routineForm.wakeTime} onChange={(e) => setRoutineForm({...routineForm, wakeTime: e.target.value})} /></div>
+                                <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">Bed Time</label><input type="time" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm outline-none" value={routineForm.bedTime} onChange={(e) => setRoutineForm({...routineForm, bedTime: e.target.value})} /></div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Skin Type</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['Oily', 'Dry', 'Combo', 'Normal', 'Sensitive'].map(type => (
+                                        <button key={type} onClick={() => setRoutineForm({...routineForm, skinType: type})} className={`py-2 text-xs font-bold rounded-lg border transition ${routineForm.skinType === type ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-200'}`}>{type}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {(routineTab === 'am' || routineTab === 'pm') && (
+                        <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                            <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-gray-900">{routineTab === 'am' ? 'Morning Routine' : 'Evening Routine'}</h3><span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{(routineTab === 'am' ? routineForm.amProducts : routineForm.pmProducts).length} items</span></div>
+                            <div className="flex gap-2">
+                                <input type="text" placeholder="Add product..." value={newRoutineProduct} onChange={(e) => setNewRoutineProduct(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addRoutineProduct(routineTab)} className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-black transition-colors" />
+                                <button onClick={() => addRoutineProduct(routineTab)} className="bg-black text-white px-4 rounded-lg hover:bg-gray-800 transition-colors"><Plus className="w-5 h-5" /></button>
+                            </div>
+                            <div className="space-y-2">
+                                {(routineTab === 'am' ? routineForm.amProducts : routineForm.pmProducts).map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                    <span className="text-sm font-medium text-gray-700">{item}</span>
+                                    <button onClick={() => removeRoutineProduct(routineTab, idx)} className="text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-4 h-4" /></button>
+                                </div>
+                                ))}
+                                {(routineTab === 'am' ? routineForm.amProducts : routineForm.pmProducts).length === 0 && <p className="text-sm text-gray-400 italic text-center py-4">No products added yet.</p>}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
+                  {routineTab === 'profile' ? (
+                    <button onClick={() => setRoutineTab('am')} className="w-full bg-black text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-all">Next Step <ArrowRight className="w-4 h-4" /></button>
+                  ) : (
+                    <div className="flex gap-3">
+                      {routineTab === 'am' ? (
+                         <button onClick={() => setRoutineTab('pm')} className="flex-1 bg-black text-white py-3.5 rounded-xl font-bold">Go to Evening</button>
+                      ) : (
+                         <button onClick={generateRoutinePDF} className="flex-1 bg-rose-600 hover:bg-rose-700 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-rose-200 transition-all"><Printer className="w-4 h-4" /> Generate PDF</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
              </motion.div>
            </div>
         )}
@@ -464,7 +721,7 @@ export default function Home() {
         {isModalOpen && selectedProduct && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} transition={{ type: "spring", duration: 0.5 }} className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
                 <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white/80 rounded-full hover:bg-gray-100 transition"><X className="w-5 h-5" /></button>
                 <div className="w-full md:w-1/2 bg-gray-50 p-6 flex flex-col gap-4 overflow-y-auto">
                     <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white border border-gray-100"><Image src={activeImage || selectedProduct.image_url} alt={selectedProduct.name} fill className="object-cover" unoptimized /></div>
@@ -479,63 +736,31 @@ export default function Home() {
                       <h2 className="text-2xl md:text-3xl font-serif font-bold mb-2 leading-tight">{selectedProduct.name}</h2>
                       <div className="flex items-center gap-2 mb-6"><div className="flex text-yellow-500"><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/></div><span className="text-xs text-gray-400 font-bold">(4.9)</span></div>
                       
-                      {/* MODAL PRICE DISPLAY */}
                       <div className="text-xl md:text-2xl font-bold mb-4 flex flex-col gap-1">
                           <div className="flex items-center gap-3">
                               <span className={selectedProduct.is_on_sale ? "text-red-600" : ""}>{siteSettings.currency} {(activeVariant ? activeVariant.price : selectedProduct.price).toLocaleString()}</span>
                               {selectedProduct.is_on_sale && <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full uppercase tracking-wider font-bold">On Sale</span>}
                           </div>
-                          
-                          {/* SHOW ORIGINAL PRICE IN MODAL */}
-                          {selectedProduct.is_on_sale && selectedProduct.original_price && (
-                              <div className="flex items-center gap-2">
-                                  <span className="text-sm text-gray-400 line-through">Was: {siteSettings.currency} {selectedProduct.original_price.toLocaleString()}</span>
-                                  <span className="text-xs text-green-600 font-bold uppercase tracking-wide">
-                                      Save {siteSettings.currency} {(selectedProduct.original_price - selectedProduct.price).toLocaleString()}
-                                  </span>
-                              </div>
-                          )}
+                          {selectedProduct.is_on_sale && selectedProduct.original_price && <span className="text-sm text-gray-400 line-through">Was: {siteSettings.currency} {selectedProduct.original_price.toLocaleString()}</span>}
                       </div>
-                      
-                      {activeVariant && activeVariant.stock < 5 && activeVariant.stock > 0 && (
-                        <div className="mb-6 flex items-center gap-2 text-red-600 bg-red-50 w-fit px-3 py-1.5 rounded-full"><div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse" /><span className="text-[10px] font-bold uppercase tracking-wider">Only {activeVariant.stock} left in stock</span></div>
-                      )}
                       
                       {selectedProduct.variants && selectedProduct.variants.length > 0 && (
                         <div className="mb-6">
                            <label className="text-xs font-bold uppercase text-gray-900 mb-2 block">Size</label>
                            <div className="flex flex-wrap gap-2">
                               {selectedProduct.variants.map((v, i) => (
-                                 <button 
-                                   key={i} 
-                                   disabled={v.stock <= 0}
-                                   onClick={() => setActiveVariant(v)} 
-                                   className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded border transition-all ${activeVariant?.name === v.name ? 'border-black bg-black text-white ring-1 ring-black ring-offset-1' : v.stock <= 0 ? 'border-gray-100 text-gray-300 cursor-not-allowed line-through' : 'border-gray-200 text-gray-500 hover:border-black'}`}
-                                 >
-                                    {v.name}
-                                 </button>
+                                 <button key={i} disabled={v.stock <= 0} onClick={() => setActiveVariant(v)} className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded border transition-all ${activeVariant?.name === v.name ? 'border-black bg-black text-white ring-1 ring-black ring-offset-1' : v.stock <= 0 ? 'border-gray-100 text-gray-300 cursor-not-allowed line-through' : 'border-gray-200 text-gray-500 hover:border-black'}`}>{v.name}</button>
                               ))}
                            </div>
                         </div>
                       )}
-
+                      
                       <div className="mb-6 text-sm text-gray-600 leading-relaxed">
-                          {isDescExpanded || !selectedProduct.description ? (
-                              <p>{selectedProduct.description || "No description available."}</p>
-                          ) : (
-                              <p>{getTruncatedText(selectedProduct.description, 150)} <button onClick={() => setIsDescExpanded(true)} className="font-bold text-black underline decoration-1 underline-offset-2 ml-1">Read More</button></p>
-                          )}
+                          {isDescExpanded || !selectedProduct.description ? <p>{selectedProduct.description || "No description available."}</p> : <p>{selectedProduct.description.substring(0, 150)}... <button onClick={() => setIsDescExpanded(true)} className="font-bold text-black underline decoration-1 underline-offset-2 ml-1">Read More</button></p>}
                           {isDescExpanded && <button onClick={() => setIsDescExpanded(false)} className="font-bold text-black underline decoration-1 underline-offset-2 mt-1 text-xs">Show Less</button>}
                       </div>
-
-                      <a 
-                        href={`https://wa.me/${siteSettings.whatsapp}?text=Hi Sela, I need advice on ${selectedProduct.name}`} 
-                        target="_blank" 
-                        className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-green-600 transition mb-6 bg-gray-50 px-3 py-2 rounded-lg"
-                      >
-                        <MessageCircle className="w-4 h-4" /> Not sure? Ask an Expert on WhatsApp
-                      </a>
-
+                      
+                      <a href={`https://wa.me/${siteSettings.whatsapp}?text=Hi Sela, I need advice on ${selectedProduct.name}`} target="_blank" className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-green-600 transition mb-6 bg-gray-50 px-3 py-2 rounded-lg"><MessageCircle className="w-4 h-4" /> Ask an Expert on WhatsApp</a>
                    </div>
                    <div className="pt-4 border-t border-gray-100 flex gap-3">
                       <div className="flex items-center border border-gray-200 rounded-lg px-2 h-10">
@@ -544,7 +769,7 @@ export default function Home() {
                          <button onClick={() => setModalQty(modalQty + 1)} className="p-1"><Plus className="w-3 h-3 text-gray-500 hover:text-black"/></button>
                       </div>
                       
-                      {(activeVariant && activeVariant.stock > 0) || (!activeVariant && getRealStock(selectedProduct) > 0) ? (
+                      {(activeVariant && activeVariant.stock > 0) || (!activeVariant && (selectedProduct.variants?.reduce((a,v)=>a+v.stock,0) ?? selectedProduct.stock) > 0) ? (
                           <button onClick={() => addToCart(selectedProduct, modalQty, activeVariant)} className="flex-1 bg-black text-white rounded-lg h-10 font-bold text-xs uppercase tracking-[0.15em] hover:bg-gray-800 transition flex items-center justify-center gap-2">Add to Bag</button>
                       ) : (
                           <button disabled className="flex-1 bg-gray-200 text-gray-400 rounded-lg h-10 font-bold text-xs uppercase tracking-[0.15em] cursor-not-allowed flex items-center justify-center gap-2"><AlertCircle className="w-4 h-4" /> Sold Out</button>
@@ -555,7 +780,6 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
-
     </main>
   );
 }

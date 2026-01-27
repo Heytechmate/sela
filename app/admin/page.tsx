@@ -3,17 +3,18 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-// --- CHANGED: Use the correct package you have installed ---
 import { createBrowserClient } from "@supabase/ssr";
 import * as XLSX from 'xlsx'; 
 import { 
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
   Settings, Package, UploadCloud, ShoppingCart, ChevronDown, ChevronUp, 
-  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight
+  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
+  ArchiveX, AlertTriangle, Clock
 } from "lucide-react";
 
-// --- TYPES ---
-type Variant = { name: string; price: number; stock: number };
+// --- UPDATED TYPES ---
+// Added cost_price to Variant so we can calculate profit per size
+type Variant = { name: string; price: number; cost_price: number; stock: number };
 
 type Product = {
   id: number;
@@ -73,7 +74,7 @@ const CITY_GROUPS = {
 export default function AdminPage() {
   const router = useRouter();
   
-  // --- INITIALIZE SUPABASE WITH SSR CLIENT ---
+  // --- INITIALIZE SUPABASE ---
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -81,7 +82,7 @@ export default function AdminPage() {
   
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<"products" | "settings" | "orders">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "settings" | "orders" | "cancelled">("products");
   
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -108,7 +109,9 @@ export default function AdminPage() {
   
   // Settings State
   const [settings, setSettings] = useState({ 
+      id: null as number | null, 
       whatsapp: "", banner_text: "", currency: "LKR", 
+      banner_interval: 5000, 
       hero_images: [] as string[], receipt_brand: "SELA COSMETICS", 
       receipt_sub: "Science Meets Skin", receipt_footer: "", 
       region_assignments: {} as Record<string, string> 
@@ -122,7 +125,8 @@ export default function AdminPage() {
   const [heroFiles, setHeroFiles] = useState<File[]>([]);
   const [existingGallery, setExistingGallery] = useState<string[]>([]);
   const [variants, setVariants] = useState<Variant[]>([]);
-  const [tempVariant, setTempVariant] = useState({ name: "", price: "", stock: "" });
+  // Updated tempVariant to include cost
+  const [tempVariant, setTempVariant] = useState({ name: "", price: "", cost_price: "", stock: "" });
 
   const SUGGESTED_CATEGORIES = ['Lips', 'Face', 'Skin', 'Eyes', 'Sets', 'Perfume', 'Accessories'];
 
@@ -134,8 +138,8 @@ export default function AdminPage() {
         } else {
             setIsAuthenticated(true);
             const savedTab = localStorage.getItem("adminActiveTab");
-            if (savedTab === "products" || savedTab === "settings" || savedTab === "orders") {
-                setActiveTab(savedTab);
+            if (savedTab === "products" || savedTab === "settings" || savedTab === "orders" || savedTab === "cancelled") {
+                setActiveTab(savedTab as any);
             }
             fetchProducts(); 
             fetchSettings(); 
@@ -151,11 +155,11 @@ export default function AdminPage() {
       router.push("/admin/login");
   };
 
-  const handleTabChange = (tab: "products" | "settings" | "orders") => {
+  const handleTabChange = (tab: "products" | "settings" | "orders" | "cancelled") => {
       setActiveTab(tab); 
       localStorage.setItem("adminActiveTab", tab);
       if (tab !== "products") setIsProductFormOpen(false); 
-      if (tab === "orders") { fetchProducts(); fetchOrders(); } 
+      if (tab === "orders" || tab === "cancelled") { fetchProducts(); fetchOrders(); } 
   };
 
   async function fetchProducts() { 
@@ -169,11 +173,14 @@ export default function AdminPage() {
   }
   
   async function fetchSettings() {
-    const { data } = await supabase.from('site_settings').select('*').single();
+    const { data } = await supabase.from('site_settings').select('*').order('id', { ascending: true }).limit(1).maybeSingle();
     if (data) {
         setSettings({ 
+            id: data.id, 
             whatsapp: data.whatsapp || "", banner_text: data.banner_text || "", 
-            currency: data.currency || "LKR", hero_images: data.hero_images || [], 
+            currency: data.currency || "LKR", 
+            banner_interval: data.banner_interval || 5000,
+            hero_images: data.hero_images || [], 
             receipt_brand: data.receipt_brand || "SELA COSMETICS", 
             receipt_sub: data.receipt_sub || "Science Meets Skin", 
             receipt_footer: data.receipt_footer || "", 
@@ -182,17 +189,27 @@ export default function AdminPage() {
     }
   }
 
-  // --- PROFIT LOGIC ---
+  // --- UPDATED PROFIT LOGIC TO HANDLE VARIANTS ---
   const calculateProductProfit = (price: number, cost: number) => {
       return price - (cost || 0);
   }
 
   const calculateOrderProfit = (order: Order) => {
-      if (order.status === 'Cancelled') return 0;
       let profit = 0;
       order.items.forEach(item => {
           const product = products.find(p => p.name === item.name);
-          const cost = product ? product.cost_price : 0;
+          if (!product) return;
+
+          let cost = product.cost_price || 0; // Default base cost
+
+          // If item is a specific variant, try to find THAT variant's cost
+          if (item.variant && product.variants && product.variants.length > 0) {
+              const variant = product.variants.find(v => v.name === item.variant);
+              if (variant && variant.cost_price) {
+                  cost = variant.cost_price;
+              }
+          }
+          
           profit += (item.price - cost) * item.qty;
       });
       return profit;
@@ -200,21 +217,69 @@ export default function AdminPage() {
 
   // --- METRICS CALCULATION ---
   const today = new Date().toLocaleDateString();
-  const todayOrders = orders.filter(o => new Date(o.created_at).toLocaleDateString() === today);
-  const pastOrders = orders.filter(o => new Date(o.created_at).toLocaleDateString() !== today);
+  const activeOrdersList = orders.filter(o => o.status !== 'Cancelled');
+  const cancelledOrdersList = orders.filter(o => o.status === 'Cancelled');
 
-  const todayRevenue = todayOrders.filter(o => o.status !== 'Cancelled').reduce((acc, o) => acc + o.total_price, 0);
-  const totalRevenue = orders.filter(o => o.status !== 'Cancelled').reduce((acc, o) => acc + o.total_price, 0);
-  
+  const todayOrders = activeOrdersList.filter(o => new Date(o.created_at).toLocaleDateString() === today);
+  const pastOrders = activeOrdersList.filter(o => new Date(o.created_at).toLocaleDateString() !== today);
+
+  const todayRevenue = todayOrders.reduce((acc, o) => acc + o.total_price, 0);
+  const totalRevenue = activeOrdersList.reduce((acc, o) => acc + o.total_price, 0);
   const todayProfit = todayOrders.reduce((acc, o) => acc + calculateOrderProfit(o), 0);
-  const totalProfit = orders.reduce((acc, o) => acc + calculateOrderProfit(o), 0);
+  const totalProfit = activeOrdersList.reduce((acc, o) => acc + calculateOrderProfit(o), 0);
 
-  // --- PAGINATION LOGIC ---
   const totalHistoryPages = Math.ceil(pastOrders.length / ITEMS_PER_PAGE);
   const currentHistoryOrders = pastOrders.slice(
       (historyPage - 1) * ITEMS_PER_PAGE, 
       historyPage * ITEMS_PER_PAGE
   );
+
+  // --- STOCK RESTORATION LOGIC ---
+  const returnStockForOrder = async (order: Order) => {
+      let restoredCount = 0;
+      for (const item of order.items) {
+          const { data: product } = await supabase.from('products').select('*').eq('name', item.name).single();
+          if (!product) continue;
+
+          let newStock = product.stock;
+          let newVariants = product.variants ? [...product.variants] : [];
+
+          if (product.variants && product.variants.length > 0) {
+             const vIndex = newVariants.findIndex((v: any) => v.name === item.variant);
+             if (vIndex !== -1) {
+                 newVariants[vIndex].stock += item.qty;
+                 newStock = newVariants.reduce((acc: number, v: any) => acc + v.stock, 0);
+             }
+          } else {
+             newStock += item.qty;
+          }
+
+          const updates = product.variants 
+             ? { variants: newVariants, stock: newStock }
+             : { stock: newStock };
+
+          await supabase.from('products').update(updates).eq('id', product.id);
+          restoredCount++;
+      }
+      await fetchProducts();
+      alert(`Success: Stock returned for ${restoredCount} items in Order #${order.id}`);
+  };
+
+  const updateOrderStatus = async (id: number, newStatus: string) => { 
+      const order = orders.find(o => o.id === id);
+      if (!order) return;
+
+      if (newStatus === 'Cancelled' && order.status !== 'Cancelled') {
+          const confirmCancel = confirm("Cancelling this order will return items to stock. Continue?");
+          if (!confirmCancel) return;
+          await returnStockForOrder(order);
+      }
+
+      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id); 
+      if (!error) {
+          setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o)); 
+      }
+  };
 
   // --- BULK UPLOAD ---
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -353,24 +418,69 @@ export default function AdminPage() {
   
   const saveSettings = async (e: React.FormEvent) => { 
       e.preventDefault(); 
-      // UPDATED TO 'UPSERT' TO FIX FIRST-TIME SAVE ISSUE
-      await supabase.from('site_settings').upsert({ id: 1, ...settings }); 
-      alert("Settings Saved!"); 
+      setUploading(true);
+
+      try {
+          const newHeroUrls: string[] = [];
+          for (const file of heroFiles) {
+              const fd = new FormData();
+              fd.append("file", file);
+              const res = await fetch("/api/upload", { method: "POST", body: fd });
+              const data = await res.json(); 
+
+              if (!res.ok) {
+                  console.error("Upload error:", data);
+                  throw new Error(data.error || `Failed to upload ${file.name}`);
+              }
+              newHeroUrls.push(data.url);
+          }
+
+          const updatedHeroImages = [...settings.hero_images, ...newHeroUrls];
+          
+          const updatePayload = {
+              whatsapp: settings.whatsapp,
+              banner_text: settings.banner_text,
+              currency: settings.currency,
+              banner_interval: settings.banner_interval,
+              hero_images: updatedHeroImages,
+              receipt_brand: settings.receipt_brand,
+              receipt_sub: settings.receipt_sub,
+              receipt_footer: settings.receipt_footer,
+              region_assignments: settings.region_assignments
+          };
+
+          if (settings.id) {
+              await supabase.from('site_settings').update(updatePayload).eq('id', settings.id);
+          } else {
+              await supabase.from('site_settings').insert(updatePayload);
+          }
+          
+          setSettings(prev => ({...prev, hero_images: updatedHeroImages}));
+          setHeroFiles([]); 
+          await fetchSettings();
+          alert("Settings Saved Successfully!");
+      } catch (error: any) {
+          console.error("Error saving settings:", error);
+          alert(`Error: ${error.message}`); 
+      } finally {
+          setUploading(false);
+      }
   };
 
+  // --- UPDATED ADD VARIANT HANDLER ---
   const handleAddVariant = () => { 
       if (!tempVariant.name || !tempVariant.price) return; 
-      setVariants([...variants, { name: tempVariant.name, price: parseFloat(tempVariant.price), stock: parseInt(tempVariant.stock) || 0 }]); 
-      setTempVariant({ name: "", price: "", stock: "" }); 
+      setVariants([...variants, { 
+          name: tempVariant.name, 
+          price: parseFloat(tempVariant.price), 
+          cost_price: parseFloat(tempVariant.cost_price) || 0, // Capture cost
+          stock: parseInt(tempVariant.stock) || 0 
+      }]); 
+      setTempVariant({ name: "", price: "", cost_price: "", stock: "" }); // Reset
   };
   
   const removeVariant = (i: number) => setVariants(variants.filter((_, idx) => idx !== i));
   const removeHeroImage = (i: number) => setSettings(p => ({ ...p, hero_images: p.hero_images.filter((_, idx) => idx !== i) }));
-  
-  const updateOrderStatus = async (id: number, newStatus: string) => { 
-      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', id); 
-      if (!error) setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o)); 
-  };
   
   const generateReceipt = (order: Order) => {
     const printWindow = window.open('', '', 'width=600,height=800');
@@ -415,7 +525,8 @@ export default function AdminPage() {
           </div>
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
               <button onClick={() => handleTabChange("products")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "products" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><Package className="w-4 h-4" /> Products</button>
-              <button onClick={() => handleTabChange("orders")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "orders" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><ShoppingCart className="w-4 h-4" /> Orders</button>
+              <button onClick={() => handleTabChange("orders")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "orders" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><ShoppingCart className="w-4 h-4" /> Active Orders</button>
+              <button onClick={() => handleTabChange("cancelled")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "cancelled" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><ArchiveX className="w-4 h-4" /> Cancelled</button>
               <button onClick={() => handleTabChange("settings")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "settings" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><Settings className="w-4 h-4" /> Settings</button>
           </nav>
           <div className="p-4 border-t border-gray-100">
@@ -551,7 +662,32 @@ export default function AdminPage() {
                            </div>
                            <div className="space-y-6">
                                <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
-                               <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label><div className="flex gap-2 mb-3"><input className="flex-1 bg-white border border-gray-200 rounded-lg p-2 text-xs" placeholder="Size (e.g. 30ml)" value={tempVariant.name} onChange={e => setTempVariant({...tempVariant, name: e.target.value})} /><input className="w-24 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Price" value={tempVariant.price} onChange={e => setTempVariant({...tempVariant, price: e.target.value})} /><input className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Qty" value={tempVariant.stock} onChange={e => setTempVariant({...tempVariant, stock: e.target.value})} /><button type="button" onClick={handleAddVariant} className="bg-black text-white px-4 rounded-lg text-xs font-bold">Add</button></div><div className="space-y-2 max-h-40 overflow-y-auto">{variants.map((v, i) => (<div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs"><span className="font-medium">{v.name}</span><div className="flex gap-3 text-gray-500"><span>LKR {Number(v.price).toFixed(2)}</span><span className="font-bold text-gray-900 border-l pl-3">Qty: {v.stock}</span></div><button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button></div>))}</div>{variants.length === 0 && <div className="text-center py-2"><p className="text-xs text-gray-400">No variants added. Simple product stock:</p><input type="number" className="mt-2 w-24 text-center border rounded py-1 text-sm mx-auto block" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" /></div>}</div>
+                               <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label>
+                               
+                               {/* UPDATED VARIANT INPUTS TO INCLUDE COST */}
+                               <div className="flex gap-2 mb-3">
+                                   <input className="flex-1 bg-white border border-gray-200 rounded-lg p-2 text-xs" placeholder="Size (e.g. 30ml)" value={tempVariant.name} onChange={e => setTempVariant({...tempVariant, name: e.target.value})} />
+                                   <input className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Cost" value={tempVariant.cost_price} onChange={e => setTempVariant({...tempVariant, cost_price: e.target.value})} />
+                                   <input className="w-24 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Price" value={tempVariant.price} onChange={e => setTempVariant({...tempVariant, price: e.target.value})} />
+                                   <input className="w-20 bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Qty" value={tempVariant.stock} onChange={e => setTempVariant({...tempVariant, stock: e.target.value})} />
+                                   <button type="button" onClick={handleAddVariant} className="bg-black text-white px-4 rounded-lg text-xs font-bold">Add</button>
+                               </div>
+
+                               <div className="space-y-2 max-h-40 overflow-y-auto">
+                                   {variants.map((v, i) => (
+                                     <div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                         <span className="font-medium">{v.name}</span>
+                                         <div className="flex gap-3 text-gray-500">
+                                             <span className="text-gray-400 text-[10px]">Cost: {Number(v.cost_price).toFixed(2)}</span>
+                                             <span>LKR {Number(v.price).toFixed(2)}</span>
+                                             <span className="font-bold text-gray-900 border-l pl-3">Qty: {v.stock}</span>
+                                             <span className="text-green-600 font-bold ml-2">+{Number(v.price - v.cost_price).toLocaleString()}</span>
+                                         </div>
+                                         <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
+                                     </div>
+                                   ))}
+                               </div>
+                               {variants.length === 0 && <div className="text-center py-2"><p className="text-xs text-gray-400">No variants added. Simple product stock:</p><input type="number" className="mt-2 w-24 text-center border rounded py-1 text-sm mx-auto block" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} placeholder="0" /></div>}</div>
                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">How to Use</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.usage_info} onChange={e => setForm({...form, usage_info: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Ingredients</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.ingredients} onChange={e => setForm({...form, ingredients: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Tags</label><input className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
                            </div>
                        </div>
@@ -562,7 +698,7 @@ export default function AdminPage() {
             </div>
         )}
 
-        {/* ORDERS TAB */}
+        {/* ORDERS TAB (ACTIVE) */}
         {activeTab === "orders" && (
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
@@ -604,22 +740,22 @@ export default function AdminPage() {
                             <button onClick={fetchOrders} className="text-xs font-bold bg-white border border-blue-200 text-blue-700 px-3 py-1 rounded hover:bg-blue-100"><RefreshCw className="w-3 h-3" /></button>
                         </div>
                         {todayOrders.length === 0 ? (
-                            <div className="p-8 text-center text-gray-400 text-sm italic">No orders yet today.</div>
+                            <div className="p-8 text-center text-gray-400 text-sm italic">No active orders today.</div>
                         ) : (
                             <div className="divide-y divide-gray-100">
                                 {todayOrders.map(order => (
                                     <div key={order.id} className="group">
-                                        <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer ${order.status === 'Cancelled' ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50'}`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                        <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : order.status === 'Cancelled' ? 'bg-red-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
-                                                <div><h3 className={`text-sm font-bold ${order.status === 'Cancelled' ? 'line-through text-gray-400' : ''}`}>#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
+                                                <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
                                             </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
-                                                    <p className={`text-sm font-bold font-mono ${order.status === 'Cancelled' ? 'line-through text-gray-400' : ''}`}>{order.currency} {order.total_price.toLocaleString()}</p>
+                                                    <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
                                                     <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
                                                 </div>
-                                                <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : order.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
                                                 {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
                                             </div>
                                         </div>
@@ -649,14 +785,17 @@ export default function AdminPage() {
                                 <div className="divide-y divide-gray-100">
                                     {currentHistoryOrders.map(order => (
                                         <div key={order.id} className="group">
-                                            <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer ${order.status === 'Cancelled' ? 'bg-red-50/50 hover:bg-red-50' : 'hover:bg-gray-50'}`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                            <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : order.status === 'Cancelled' ? 'bg-red-500' : 'bg-gray-400'}`}>{order.status[0]}</div>
-                                                    <div><h3 className={`text-sm font-bold ${order.status === 'Cancelled' ? 'line-through text-gray-400' : ''}`}>#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-gray-400'}`}>{order.status[0]}</div>
+                                                    <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
                                                 </div>
                                                 <div className="flex items-center gap-6">
-                                                    <p className={`text-sm font-bold font-mono ${order.status === 'Cancelled' ? 'line-through text-gray-400' : ''}`}>{order.currency} {order.total_price.toLocaleString()}</p>
-                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : order.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                    <div className="text-right">
+                                                      <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                      <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                                    </div>
+                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
                                                     {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
                                                 </div>
                                             </div>
@@ -692,9 +831,68 @@ export default function AdminPage() {
              </div>
         )}
 
+        {/* CANCELLED ORDERS TAB */}
+        {activeTab === "cancelled" && (
+             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex justify-between items-center">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-red-900 flex items-center gap-2">
+                            <ArchiveX className="w-4 h-4" /> Cancelled Orders ({cancelledOrdersList.length})
+                        </h2>
+                    </div>
+                    {cancelledOrdersList.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400 text-sm italic">No cancelled orders.</div>
+                    ) : (
+                        <div className="divide-y divide-gray-100">
+                            {cancelledOrdersList.map(order => (
+                                <div key={order.id} className="group">
+                                    <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition bg-red-50/30 hover:bg-red-50 cursor-pointer" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs bg-red-500">C</div>
+                                            <div><h3 className="text-sm font-bold line-through text-gray-500">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
+                                        </div>
+                                        <div className="flex items-center gap-6">
+                                            <div className="text-right">
+                                              <p className="text-sm font-bold font-mono text-gray-400 line-through">{order.currency} {order.total_price.toLocaleString()}</p>
+                                              <p className="text-[10px] font-bold text-red-400 bg-red-50 px-1 rounded inline-block">Lost Profit: {calculateOrderProfit(order).toLocaleString()}</p>
+                                            </div>
+                                            <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
+                                            {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                        </div>
+                                    </div>
+                                    {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items (Returned to Stock)</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono text-gray-400 line-through">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+             </div>
+        )}
+
         {/* SETTINGS TAB */}
         {activeTab === "settings" && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><form onSubmit={saveSettings} className="grid grid-cols-1 md:grid-cols-12 gap-6"><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><Settings className="w-4 h-4" /> General</h3><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Rest of Island WhatsApp</label><input required type="text" value={settings.whatsapp} onChange={(e) => setSettings({...settings, whatsapp: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Store Currency</label><input required type="text" value={settings.currency} onChange={(e) => setSettings({...settings, currency: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Announcement Banner</label><textarea required rows={4} value={settings.banner_text} onChange={(e) => setSettings({...settings, banner_text: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none resize-none" /></div></div><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><FileText className="w-4 h-4" /> Receipt Branding</h3><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Brand Name</label><input type="text" value={settings.receipt_brand} onChange={(e) => setSettings({...settings, receipt_brand: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Tagline</label><input type="text" value={settings.receipt_sub} onChange={(e) => setSettings({...settings, receipt_sub: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div className="flex-1 flex flex-col"><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Footer Policy</label><textarea value={settings.receipt_footer} onChange={(e) => setSettings({...settings, receipt_footer: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none h-full min-h-[100px] resize-none" /></div></div><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Hero Banner</h3><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-4 overflow-y-auto max-h-[300px]"><div className="grid grid-cols-2 gap-2">{settings.hero_images.map((img, i) => (<div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 group"><Image src={img} alt="Hero" fill className="object-cover" /><button type="button" onClick={() => removeHeroImage(i)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{heroFiles.map((file, i) => (<div key={`new-${i}`} className="relative aspect-video rounded-lg overflow-hidden border border-blue-200 opacity-70"><Image src={URL.createObjectURL(file)} alt="Preview" fill className="object-cover" /></div>))}<label className="aspect-video bg-gray-50 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 border border-transparent hover:border-gray-300 transition text-gray-400"><UploadCloud className="w-6 h-6 mb-1" /><span className="text-[10px] font-bold">ADD</span><input type="file" multiple accept="image/*" className="hidden" onChange={(e) => setHeroFiles(prev => [...prev, ...Array.from(e.target.files || [])])} /></label></div></div></div><div className="md:col-span-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6"><div className="flex justify-between items-start mb-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" /> Delivery Routing (Exceptions)</h3><div className="flex gap-2">{Object.keys(CITY_GROUPS).map((group) => (<button key={group} type="button" onClick={() => addGroupToSelection(group as keyof typeof CITY_GROUPS)} className="bg-gray-100 border border-gray-200 rounded-full px-3 py-1 text-[10px] font-bold text-gray-600 hover:bg-gray-200 whitespace-nowrap">+ {group}</button>))}</div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-4"><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><div className="flex flex-wrap gap-2 p-2 bg-white border border-gray-100 rounded-lg min-h-[40px] mb-3">{selectedCities.length === 0 && <span className="text-xs text-gray-400 self-center pl-1">Select cities to route...</span>}{selectedCities.map(city => (<span key={city} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">{city} <button type="button" onClick={() => removeCityFromSelection(city)}><X className="w-3 h-3 hover:text-blue-900" /></button></span>))}</div><div className="flex gap-2"><select className="w-1/3 bg-white border border-gray-200 rounded-lg p-2 text-xs h-10" onChange={addCityToSelection}><option value="">Select City...</option>{SL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}</select><div className="flex-1 flex items-center bg-white border border-gray-200 rounded-lg px-2"><Phone className="w-3 h-3 text-gray-400 mr-2" /><input className="w-full text-xs outline-none h-9" placeholder="Enter WhatsApp Number" value={tempPhone} onChange={(e) => setTempPhone(e.target.value)} /></div><button type="button" onClick={assignBulkNumber} className="bg-black text-white px-4 rounded-lg text-xs font-bold h-10 flex items-center gap-2"><Users className="w-3 h-3" /> Assign</button></div></div></div><div className="border-l border-gray-100 pl-8 space-y-2 max-h-60 overflow-y-auto"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Active Rules</h4>{Object.entries(settings.region_assignments).map(([city, phone]) => (<div key={city} className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 text-sm"><span className="font-medium">{city}</span><div className="flex items-center gap-3"><span className="font-mono text-gray-500 text-xs bg-gray-50 px-2 py-1 rounded">{phone}</span><button type="button" onClick={() => removeAssignment(city)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button></div></div>))}{Object.keys(settings.region_assignments).length === 0 && <p className="text-xs text-gray-400 italic">No exceptions. All orders go to default number.</p>}</div></div></div><div className="md:col-span-12 flex justify-end pt-4 border-t border-gray-100"><button type="submit" disabled={uploading} className="px-8 py-3 bg-black text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800 transition flex items-center gap-2">{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save All Settings</button></div></form></div>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500"><form onSubmit={saveSettings} className="grid grid-cols-1 md:grid-cols-12 gap-6"><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><Settings className="w-4 h-4" /> General</h3><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Rest of Island WhatsApp</label><input required type="text" value={settings.whatsapp} onChange={(e) => setSettings({...settings, whatsapp: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Store Currency</label><input required type="text" value={settings.currency} onChange={(e) => setSettings({...settings, currency: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div>
+            
+            {/* NEW: BANNER SPEED INPUT */}
+            <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Banner Slide Speed (Seconds)</label>
+                <div className="relative">
+                    <Clock className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                    <input 
+                        type="number" 
+                        min="1" 
+                        value={settings.banner_interval ? settings.banner_interval / 1000 : ""} 
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const newInterval = isNaN(val) ? 0 : Math.max(0, val * 1000);
+                            setSettings({...settings, banner_interval: newInterval});
+                        }} 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-3 py-3 text-sm font-medium outline-none" 
+                    />
+                </div>
+            </div>
+
+            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Announcement Banner</label><textarea required rows={4} value={settings.banner_text} onChange={(e) => setSettings({...settings, banner_text: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none resize-none" /></div></div><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><FileText className="w-4 h-4" /> Receipt Branding</h3><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Brand Name</label><input type="text" value={settings.receipt_brand} onChange={(e) => setSettings({...settings, receipt_brand: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Tagline</label><input type="text" value={settings.receipt_sub} onChange={(e) => setSettings({...settings, receipt_sub: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" /></div><div className="flex-1 flex flex-col"><label className="text-xs font-bold text-gray-500 uppercase block mb-2">Footer Policy</label><textarea value={settings.receipt_footer} onChange={(e) => setSettings({...settings, receipt_footer: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none h-full min-h-[100px] resize-none" /></div></div><div className="md:col-span-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Hero Banner</h3><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-4 overflow-y-auto max-h-[300px]"><div className="grid grid-cols-2 gap-2">{settings.hero_images.map((img, i) => (<div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 group"><Image src={img} alt="Hero" fill className="object-cover" /><button type="button" onClick={() => removeHeroImage(i)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{heroFiles.map((file, i) => (<div key={`new-${i}`} className="relative aspect-video rounded-lg overflow-hidden border border-blue-200 opacity-70"><Image src={URL.createObjectURL(file)} alt="Preview" fill className="object-cover" /></div>))}<label className="aspect-video bg-gray-50 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 border border-transparent hover:border-gray-300 transition text-gray-400"><UploadCloud className="w-6 h-6 mb-1" /><span className="text-[10px] font-bold">ADD</span><input type="file" multiple accept="image/*" className="hidden" onChange={(e) => setHeroFiles(prev => [...prev, ...Array.from(e.target.files || [])])} /></label></div></div></div><div className="md:col-span-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6"><div className="flex justify-between items-start mb-6"><h3 className="text-xs font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2"><MapPin className="w-4 h-4" /> Delivery Routing (Exceptions)</h3><div className="flex gap-2">{Object.keys(CITY_GROUPS).map((group) => (<button key={group} type="button" onClick={() => addGroupToSelection(group as keyof typeof CITY_GROUPS)} className="bg-gray-100 border border-gray-200 rounded-full px-3 py-1 text-[10px] font-bold text-gray-600 hover:bg-gray-200 whitespace-nowrap">+ {group}</button>))}</div></div><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div className="space-y-4"><div className="bg-gray-50 p-4 rounded-xl border border-gray-200"><div className="flex flex-wrap gap-2 p-2 bg-white border border-gray-100 rounded-lg min-h-[40px] mb-3">{selectedCities.length === 0 && <span className="text-xs text-gray-400 self-center pl-1">Select cities to route...</span>}{selectedCities.map(city => (<span key={city} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold flex items-center gap-1">{city} <button type="button" onClick={() => removeCityFromSelection(city)}><X className="w-3 h-3 hover:text-blue-900" /></button></span>))}</div><div className="flex gap-2"><select className="w-1/3 bg-white border border-gray-200 rounded-lg p-2 text-xs h-10" onChange={addCityToSelection}><option value="">Select City...</option>{SL_CITIES.map(city => <option key={city} value={city}>{city}</option>)}</select><div className="flex-1 flex items-center bg-white border border-gray-200 rounded-lg px-2"><Phone className="w-3 h-3 text-gray-400 mr-2" /><input className="w-full text-xs outline-none h-9" placeholder="Enter WhatsApp Number" value={tempPhone} onChange={(e) => setTempPhone(e.target.value)} /></div><button type="button" onClick={assignBulkNumber} className="bg-black text-white px-4 rounded-lg text-xs font-bold h-10 flex items-center gap-2"><Users className="w-3 h-3" /> Assign</button></div></div></div><div className="border-l border-gray-100 pl-8 space-y-2 max-h-60 overflow-y-auto"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Active Rules</h4>{Object.entries(settings.region_assignments).map(([city, phone]) => (<div key={city} className="flex justify-between items-center bg-white p-2 rounded border border-gray-100 text-sm"><span className="font-medium">{city}</span><div className="flex items-center gap-3"><span className="font-mono text-gray-500 text-xs bg-gray-50 px-2 py-1 rounded">{phone}</span><button type="button" onClick={() => removeAssignment(city)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button></div></div>))}{Object.keys(settings.region_assignments).length === 0 && <p className="text-xs text-gray-400 italic">No exceptions. All orders go to default number.</p>}</div></div></div><div className="md:col-span-12 flex justify-end pt-4 border-t border-gray-100"><button type="submit" disabled={uploading} className="px-8 py-3 bg-black text-white rounded-xl text-sm font-bold shadow-lg hover:bg-gray-800 transition flex items-center gap-2">{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save All Settings</button></div></form></div>
         )}
 
       </main>
