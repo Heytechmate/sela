@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    // This setting IS still supported and will ignore Type errors
+    // Keep ignoring Type errors
     ignoreBuildErrors: true,
   },
   images: {
@@ -13,7 +13,6 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
-      // ADD THIS NEW BLOCK FOR UNSPLASH
       {
         protocol: "https",
         hostname: "images.unsplash.com",

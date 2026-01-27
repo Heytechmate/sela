@@ -1,6 +1,6 @@
 const eslintConfig = [
   {
-    // This tells ESLint to ignore ALL files
+    // This tells the build system to ignore ALL files, passing the check instantly
     ignores: ["**/*"],
   },
 ];
