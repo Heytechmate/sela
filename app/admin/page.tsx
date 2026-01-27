@@ -9,7 +9,7 @@ import {
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
   Settings, Package, UploadCloud, ShoppingCart, ChevronDown, ChevronUp, 
   Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
-  ArchiveX, AlertTriangle, Clock
+  ArchiveX, AlertTriangle, Clock, Menu
 } from "lucide-react";
 
 // --- TYPES ---
@@ -81,6 +81,7 @@ export default function AdminPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<"products" | "settings" | "orders" | "cancelled">("products");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [isProductFormOpen, setIsProductFormOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -156,7 +157,8 @@ export default function AdminPage() {
       setActiveTab(tab); 
       localStorage.setItem("adminActiveTab", tab);
       if (tab !== "products") setIsProductFormOpen(false); 
-      if (tab === "orders" || tab === "cancelled") { fetchProducts(); fetchOrders(); } 
+      if (tab === "orders" || tab === "cancelled") { fetchProducts(); fetchOrders(); }
+      setIsMobileMenuOpen(false); // Close mobile menu on select 
   };
 
   async function fetchProducts() { 
@@ -459,7 +461,6 @@ export default function AdminPage() {
       }
   };
 
-  // --- UPDATED ADD VARIANT HANDLER ---
   const handleAddVariant = () => { 
       if (!tempVariant.name || !tempVariant.price) return; 
       setVariants([...variants, { 
@@ -471,7 +472,6 @@ export default function AdminPage() {
       setTempVariant({ name: "", price: "", cost_price: "", stock: "" }); 
   };
   
-  // --- NEW: UPDATE VARIANT HANDLER ---
   const updateVariant = (index: number, field: keyof Variant, value: string) => {
       const updatedVariants = [...variants];
       const v = updatedVariants[index];
@@ -520,13 +520,32 @@ export default function AdminPage() {
   if (!isMounted || !isAuthenticated) return <div className="min-h-screen flex items-center justify-center bg-white"><Loader2 className="w-8 h-8 animate-spin text-gray-300" /></div>;
 
   return (
-    <div className="flex h-screen bg-[#f9fafb] font-sans text-gray-900 overflow-hidden">
+    <div className="flex h-screen bg-[#f9fafb] font-sans text-gray-900 overflow-hidden flex-col md:flex-row">
       
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 z-20">
-          <div className="p-6 border-b border-gray-100 flex items-center gap-3">
+      {/* MOBILE HEADER */}
+      <div className="md:hidden bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-30 sticky top-0">
+          <div className="flex items-center gap-3">
               <div className="bg-black text-white p-2 rounded-lg"><LayoutGrid className="w-5 h-5" /></div>
-              <h1 className="text-sm font-bold tracking-widest uppercase">Admin Panel</h1>
+              <h1 className="text-sm font-bold tracking-widest uppercase">Admin</h1>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 bg-gray-50 rounded-lg">
+              <Menu className="w-5 h-5 text-gray-700" />
+          </button>
+      </div>
+
+      {/* MOBILE SIDEBAR OVERLAY */}
+      {isMobileMenuOpen && (
+          <div className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+      )}
+
+      {/* SIDEBAR (Responsive) */}
+      <aside className={`fixed md:relative top-0 left-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 z-50 transition-transform duration-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                  <div className="bg-black text-white p-2 rounded-lg"><LayoutGrid className="w-5 h-5" /></div>
+                  <h1 className="text-sm font-bold tracking-widest uppercase">Admin Panel</h1>
+              </div>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400 hover:text-black"><X className="w-5 h-5" /></button>
           </div>
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
               <button onClick={() => handleTabChange("products")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${activeTab === "products" ? "bg-black text-white shadow-lg" : "text-gray-500 hover:bg-gray-50"}`}><Package className="w-4 h-4" /> Products</button>
@@ -539,7 +558,7 @@ export default function AdminPage() {
           </div>
       </aside>
 
-      <main className="flex-1 overflow-y-auto h-full p-8 relative">
+      <main className="flex-1 overflow-y-auto h-full p-4 md:p-8 relative">
         
         {/* QUICK STOCK MODAL */}
         {quickStockId && (
@@ -558,14 +577,14 @@ export default function AdminPage() {
         {activeTab === "products" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                        <input placeholder="Search products..." className="w-full max-w-sm pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-black/5" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                        <div className="flex gap-2">
-                            <label className="bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition cursor-pointer">
-                                {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileSpreadsheet className="w-4 h-4"/>} Import Excel
+                    <div className="p-4 md:p-6 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <input placeholder="Search products..." className="w-full md:max-w-sm pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-black/5" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <label className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition cursor-pointer">
+                                {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileSpreadsheet className="w-4 h-4"/>} <span className="hidden md:inline">Import Excel</span><span className="md:hidden">Import</span>
                                 <input type="file" accept=".xlsx, .xls, .csv" onChange={handleBulkUpload} className="hidden" />
                             </label>
-                            <button onClick={openCreateForm} className="bg-black text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-800 transition shadow-lg shadow-gray-200"><Plus className="w-4 h-4" /> Add Product</button>
+                            <button onClick={openCreateForm} className="flex-1 md:flex-none justify-center bg-black text-white px-6 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-800 transition shadow-lg shadow-gray-200"><Plus className="w-4 h-4" /> <span className="hidden md:inline">Add Product</span><span className="md:hidden">Add</span></button>
                         </div>
                     </div>
                     
@@ -573,11 +592,11 @@ export default function AdminPage() {
                       <table className="w-full text-left border-collapse">
                         <thead className="bg-gray-50 border-b border-gray-200">
                           <tr>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Product</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Code</th>
-                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Stock</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase whitespace-nowrap">Product</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">Code</th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right whitespace-nowrap">Stock</th>
                             {/* PROFIT COLUMN RESTORED */}
-                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Price / <span className="text-green-600">Profit</span></th>
+                            <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right whitespace-nowrap">Price / <span className="text-green-600">Profit</span></th>
                             <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
                           </tr>
                         </thead>
@@ -590,12 +609,12 @@ export default function AdminPage() {
                                     <Image src={product.image_url} alt="" fill className="object-cover" />
                                   </div>
                                   <div>
-                                    <p className="text-sm font-bold text-gray-900">{product.name} {product.is_on_sale && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold ml-2">SALE</span>}</p>
+                                    <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name} {product.is_on_sale && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold ml-2">SALE</span>}</p>
                                     <p className="text-xs text-gray-500">{product.brand}</p>
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-6 py-4"><span className="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200">{product.sku || "-"}</span></td>
+                              <td className="px-6 py-4 hidden md:table-cell"><span className="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded border border-gray-200">{product.sku || "-"}</span></td>
                               <td className="px-6 py-4 text-right">
                                 {product.variants && product.variants.length > 0 ? (
                                   <div className="flex flex-col items-end gap-1">
@@ -612,8 +631,8 @@ export default function AdminPage() {
                               {/* PROFIT DATA */}
                               <td className="px-6 py-4 text-right">
                                 <div className="flex flex-col items-end">
-                                   <span className="font-bold text-sm text-gray-900">{settings.currency} {product.price.toLocaleString()}</span>
-                                   <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 rounded mt-0.5">
+                                   <span className="font-bold text-sm text-gray-900 whitespace-nowrap">{settings.currency} {product.price.toLocaleString()}</span>
+                                   <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 rounded mt-0.5 whitespace-nowrap">
                                       +{settings.currency} {calculateProductProfit(product.price, product.cost_price).toLocaleString()}
                                    </span>
                                 </div>
@@ -634,12 +653,16 @@ export default function AdminPage() {
             </div>
         )}
 
-        {/* PRODUCT FORM OVERLAY */}
+        {/* PRODUCT FORM OVERLAY (FULL SCREEN ON MOBILE) */}
         {isProductFormOpen && (
-            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
-                    <div className={`px-8 py-6 border-b border-gray-200 flex justify-between items-center ${editingId ? 'bg-yellow-50' : 'bg-gray-50'}`}><h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${editingId ? 'text-yellow-700' : 'text-gray-500'}`}>{editingId ? <><Pencil className="w-4 h-4" /> Editing Product</> : <><Plus className="w-4 h-4" /> Create New Product</>}</h2><button onClick={cancelEditing} className="text-gray-400 hover:text-black transition"><X className="w-6 h-6" /></button></div>
-                    <form onSubmit={handleSaveProduct} className="p-8 space-y-8 max-h-[80vh] overflow-y-auto">
+            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex justify-center items-center p-0 md:p-4 overflow-y-auto">
+                <div className="bg-white md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 md:my-8 flex flex-col">
+                    <div className={`px-6 py-4 border-b border-gray-200 flex justify-between items-center ${editingId ? 'bg-yellow-50' : 'bg-gray-50'} shrink-0`}>
+                        <h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${editingId ? 'text-yellow-700' : 'text-gray-500'}`}>{editingId ? <><Pencil className="w-4 h-4" /> Edit Product</> : <><Plus className="w-4 h-4" /> New Product</>}</h2>
+                        <button onClick={cancelEditing} className="text-gray-400 hover:text-black transition p-2"><X className="w-6 h-6" /></button>
+                    </div>
+                    
+                    <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-6 space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
@@ -664,48 +687,48 @@ export default function AdminPage() {
                                 <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
                             </div>
                             <div className="space-y-6">
-                                <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
+                                <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4 overflow-x-auto pb-2"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
                                 <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label>
                                 
-                                {/* FIXED GRID LAYOUT FOR VARIANT INPUTS */}
-                                <div className="grid grid-cols-12 gap-2 mb-3 items-center">
-                                    <div className="col-span-3">
+                                {/* MOBILE-FRIENDLY VARIANT INPUT GRID */}
+                                <div className="grid grid-cols-4 md:grid-cols-12 gap-2 mb-3 items-end">
+                                    <div className="col-span-4 md:col-span-3">
                                       <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" placeholder="Size (e.g. 30ml)" value={tempVariant.name} onChange={e => setTempVariant({...tempVariant, name: e.target.value})} />
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-2 md:col-span-3">
                                       <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Cost" value={tempVariant.cost_price} onChange={e => setTempVariant({...tempVariant, cost_price: e.target.value})} />
                                     </div>
-                                    <div className="col-span-3">
+                                    <div className="col-span-2 md:col-span-3">
                                       <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Price" value={tempVariant.price} onChange={e => setTempVariant({...tempVariant, price: e.target.value})} />
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="col-span-2 md:col-span-2">
                                       <input className="w-full bg-white border border-gray-200 rounded-lg p-2 text-xs" type="number" placeholder="Qty" value={tempVariant.stock} onChange={e => setTempVariant({...tempVariant, stock: e.target.value})} />
                                     </div>
-                                    <div className="col-span-1">
+                                    <div className="col-span-2 md:col-span-1">
                                       <button type="button" onClick={handleAddVariant} className="w-full bg-black text-white rounded-lg text-xs font-bold h-[34px] flex items-center justify-center">Add</button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2 max-h-40 overflow-y-auto">
                                     {variants.map((v, i) => (
-                                     <div key={i} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200 text-xs">
-                                         {/* EDITABLE INPUTS WITH FALLBACK TO EMPTY STRING */}
-                                         <div className="col-span-3">
+                                     <div key={i} className="grid grid-cols-4 md:grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-gray-200 text-xs">
+                                         {/* EDITABLE INPUTS WITH FALLBACK */}
+                                         <div className="col-span-4 md:col-span-3">
                                             <input value={v.name || ""} onChange={(e) => updateVariant(i, 'name', e.target.value)} className="w-full bg-transparent font-medium focus:bg-gray-50 outline-none rounded p-1" />
                                          </div>
-                                         <div className="col-span-3 flex items-center gap-1 text-gray-400">
+                                         <div className="col-span-2 md:col-span-3 flex items-center gap-1 text-gray-400">
                                             <span>Cost:</span>
                                             <input type="number" value={v.cost_price ?? ""} onChange={(e) => updateVariant(i, 'cost_price', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1" />
                                          </div>
-                                         <div className="col-span-3 flex items-center gap-1">
+                                         <div className="col-span-2 md:col-span-3 flex items-center gap-1">
                                             <span>LKR</span>
                                             <input type="number" value={v.price ?? ""} onChange={(e) => updateVariant(i, 'price', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1 font-bold text-gray-900" />
                                          </div>
-                                         <div className="col-span-2 flex items-center gap-1 border-l pl-2 font-bold text-gray-900">
+                                         <div className="col-span-2 md:col-span-2 flex items-center gap-1 border-l pl-2 font-bold text-gray-900">
                                             <span>Qty:</span>
                                             <input type="number" value={v.stock ?? ""} onChange={(e) => updateVariant(i, 'stock', e.target.value)} className="w-full bg-transparent focus:bg-gray-50 outline-none rounded p-1" />
                                          </div>
-                                         <div className="col-span-1 flex justify-end">
+                                         <div className="col-span-2 md:col-span-1 flex justify-end">
                                             <button type="button" onClick={() => removeVariant(i)} className="text-red-400 hover:text-red-600"><X className="w-3 h-3" /></button>
                                          </div>
                                      </div>
@@ -715,9 +738,12 @@ export default function AdminPage() {
                                 <div><label className="text-xs font-bold text-gray-500 mb-1 block">How to Use</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.usage_info} onChange={e => setForm({...form, usage_info: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Ingredients</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-24" value={form.ingredients} onChange={e => setForm({...form, ingredients: e.target.value})} /></div><div><label className="text-xs font-bold text-gray-500 mb-1 block">Tags</label><input className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.tags} onChange={e => setForm({...form, tags: e.target.value})} /></div>
                             </div>
                         </div>
-                        
-                        <div className="pt-6 border-t border-gray-100 flex justify-end gap-3"><button type="button" onClick={cancelEditing} className="px-6 py-3 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition">Cancel</button><button type="submit" disabled={uploading} className={`px-8 py-3 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center gap-2 ${editingId ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-black hover:bg-gray-800'}`}>{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingId ? "Update Product" : "Save Product"}</button></div>
                     </form>
+                    
+                    <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white shrink-0">
+                        <button type="button" onClick={cancelEditing} className="px-6 py-3 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition">Cancel</button>
+                        <button onClick={(e) => handleSaveProduct(e as any)} disabled={uploading} className={`px-8 py-3 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center gap-2 ${editingId ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-black hover:bg-gray-800'}`}>{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingId ? "Update" : "Save"}</button>
+                    </div>
                 </div>
             </div>
         )}
@@ -727,28 +753,28 @@ export default function AdminPage() {
              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 
                 {/* METRIC CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
                     {/* Today Revenue */}
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-3 opacity-10"><DollarSign className="w-12 h-12" /></div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Today's Revenue</h3>
-                        <p className="text-2xl font-bold">{settings.currency} {todayRevenue.toLocaleString()}</p>
+                        <p className="text-xl md:text-2xl font-bold">{settings.currency} {todayRevenue.toLocaleString()}</p>
                     </div>
                     {/* Today Profit */}
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-3 opacity-10"><TrendingUp className="w-12 h-12 text-green-600" /></div>
                         <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Today's Profit</h3>
-                        <p className="text-2xl font-bold text-green-600">+{settings.currency} {todayProfit.toLocaleString()}</p>
+                        <p className="text-xl md:text-2xl font-bold text-green-600">+{settings.currency} {todayProfit.toLocaleString()}</p>
                     </div>
                     {/* Total Revenue */}
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
                         <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Total Revenue</h3>
-                        <p className="text-2xl font-bold text-gray-700">{settings.currency} {totalRevenue.toLocaleString()}</p>
+                        <p className="text-xl md:text-2xl font-bold text-gray-700">{settings.currency} {totalRevenue.toLocaleString()}</p>
                     </div>
                     {/* Total Profit */}
-                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
                         <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Total Profit</h3>
-                        <p className="text-2xl font-bold text-green-700">+{settings.currency} {totalProfit.toLocaleString()}</p>
+                        <p className="text-xl md:text-2xl font-bold text-green-700">+{settings.currency} {totalProfit.toLocaleString()}</p>
                     </div>
                 </div>
 
@@ -774,13 +800,15 @@ export default function AdminPage() {
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
                                                     <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
                                                 </div>
-                                                <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-6 justify-between w-full md:w-auto">
                                                     <div className="text-right">
                                                         <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
                                                         <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
                                                     </div>
-                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
-                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                    <div className="flex items-center gap-2">
+                                                        <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                        {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p><button onClick={(e) => { e.stopPropagation(); generateReceipt(order); }} className="mt-4 text-xs font-bold bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"><Printer className="w-3 h-3" /> Print Receipt</button></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
@@ -814,13 +842,15 @@ export default function AdminPage() {
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-gray-400'}`}>{order.status[0]}</div>
                                                     <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
                                                 </div>
-                                                <div className="flex items-center gap-6">
+                                                <div className="flex items-center gap-6 justify-between w-full md:w-auto">
                                                     <div className="text-right">
                                                         <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
                                                         <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
                                                     </div>
-                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
-                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                    <div className="flex items-center gap-2">
+                                                        <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                        {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                    </div>
                                                 </div>
                                             </div>
                                             {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
@@ -875,13 +905,15 @@ export default function AdminPage() {
                                                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs bg-red-500">C</div>
                                                 <div><h3 className="text-sm font-bold line-through text-gray-500">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
                                             </div>
-                                            <div className="flex items-center gap-6">
+                                            <div className="flex items-center gap-6 justify-between w-full md:w-auto">
                                                 <div className="text-right">
                                                     <p className="text-sm font-bold font-mono text-gray-400 line-through">{order.currency} {order.total_price.toLocaleString()}</p>
                                                     <p className="text-[10px] font-bold text-red-400 bg-red-50 px-1 rounded inline-block">Lost Profit: {calculateOrderProfit(order).toLocaleString()}</p>
                                                 </div>
-                                                <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
-                                                {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
+                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                </div>
                                             </div>
                                     </div>
                                     {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items (Returned to Stock)</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono text-gray-400 line-through">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
