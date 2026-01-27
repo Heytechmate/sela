@@ -1,10 +1,12 @@
+"use client";
+
 import { useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 import { Loader2, LayoutGrid, ArrowRight } from "lucide-react";
 import Image from "next/image";
 
-// !!! THIS LINE FIXES THE BUILD ERROR !!!
+// This helps Vercel build correctly
 export const dynamic = "force-dynamic";
 
 export default function LoginPage() {
