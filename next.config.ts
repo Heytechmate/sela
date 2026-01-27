@@ -5,7 +5,23 @@ const nextConfig: NextConfig = {
     // This setting IS still supported and will ignore Type errors
     ignoreBuildErrors: true,
   },
-  // The 'eslint' block is removed because we handle it in package.json now
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "pub-a42d3ae553984b2e928c351907ba6343.r2.dev",
+        port: "",
+        pathname: "/**",
+      },
+      // ADD THIS NEW BLOCK FOR UNSPLASH
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
