@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+// --- CHANGED: Use the correct package you have installed ---
+import { createBrowserClient } from "@supabase/ssr";
 import * as XLSX from 'xlsx'; 
 import { 
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
@@ -71,6 +72,13 @@ const CITY_GROUPS = {
 
 export default function AdminPage() {
   const router = useRouter();
+  
+  // --- INITIALIZE SUPABASE WITH SSR CLIENT ---
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<"products" | "settings" | "orders">("products");
@@ -345,7 +353,8 @@ export default function AdminPage() {
   
   const saveSettings = async (e: React.FormEvent) => { 
       e.preventDefault(); 
-      await supabase.from('site_settings').update({ ...settings }).eq('id', 1); 
+      // UPDATED TO 'UPSERT' TO FIX FIRST-TIME SAVE ISSUE
+      await supabase.from('site_settings').upsert({ id: 1, ...settings }); 
       alert("Settings Saved!"); 
   };
 
