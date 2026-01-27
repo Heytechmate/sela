@@ -523,21 +523,69 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* HERO SECTION */}
-      <section className="relative h-[60vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
-        <button onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} className="absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md"><ChevronLeft className="w-6 h-6" /></button>
-        <button onClick={() => setCurrentHeroIndex(prev => (prev + 1) % activeHeroImages.length)} className="absolute right-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md"><ChevronRight className="w-6 h-6" /></button>
+      {/* HERO SECTION (MOBILE OPTIMIZED) */}
+      <section className="relative h-[85vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
+        
+        {/* ARROWS: Hidden on Mobile (hidden), Visible on Desktop (md:block) */}
+        <button 
+          onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} 
+          className="hidden md:block absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        <button 
+          onClick={() => setCurrentHeroIndex(prev => (prev + 1) % activeHeroImages.length)} 
+          className="hidden md:block absolute right-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+
+        {/* IMAGE */}
         <AnimatePresence mode="wait">
-            <motion.div key={currentHeroIndex} initial={{ opacity: 0, scale: 1.05 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} transition={{ duration: 1 }} className="absolute inset-0 bg-gray-200">
-                <Image src={activeHeroImages[currentHeroIndex]} alt="Hero" fill className="object-cover opacity-90" priority />
+            <motion.div 
+              key={currentHeroIndex} 
+              initial={{ opacity: 0, scale: 1.05 }} 
+              animate={{ opacity: 1, scale: 1 }} 
+              exit={{ opacity: 0 }} 
+              transition={{ duration: 1 }} 
+              className="absolute inset-0 bg-gray-900" // Dark background to help image contrast
+            >
+                {/* Opacity lowered slightly on mobile for better text readability */}
+                <Image 
+                  src={activeHeroImages[currentHeroIndex]} 
+                  alt="Hero" 
+                  fill 
+                  className="object-cover opacity-80 md:opacity-90" 
+                  priority 
+                />
+                {/* Gradient Overlay for better text visibility */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
             </motion.div>
         </AnimatePresence>
-        <div className="relative z-10 text-center space-y-4 max-w-lg px-4">
-          <h2 className="text-4xl md:text-6xl font-serif text-white mix-blend-difference drop-shadow-sm">THE NEW STANDARD</h2>
-          <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md">Science-backed formulations for the modern minimalist.</p>
-          <div className="flex gap-3 justify-center">
-             <button onClick={scrollToShop} className="bg-white text-black px-8 py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300">Shop Collection</button>
-             <button onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} className="bg-black/80 backdrop-blur text-white border border-white/20 px-6 py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center gap-2">
+
+        {/* CONTENT */}
+        <div className="relative z-10 text-center space-y-6 max-w-lg px-6 mt-10 md:mt-0">
+          <h2 className="text-4xl md:text-6xl font-serif text-white drop-shadow-lg leading-tight">
+            THE NEW <br className="md:hidden" /> STANDARD
+          </h2>
+          
+          <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md max-w-xs mx-auto">
+            Science-backed formulations for the modern minimalist.
+          </p>
+          
+          {/* BUTTONS: Column on Mobile, Row on Desktop */}
+          <div className="flex flex-col md:flex-row gap-4 justify-center items-center w-full pt-4">
+             <button 
+               onClick={scrollToShop} 
+               className="w-full md:w-auto bg-white text-black px-8 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300 rounded-sm"
+             >
+               Shop Collection
+             </button>
+             
+             <button 
+               onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} 
+               className="w-full md:w-auto bg-black/40 backdrop-blur-md text-white border border-white/30 px-6 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center justify-center gap-2 rounded-sm"
+             >
                 <Sparkles className="w-3 h-3" /> Free Routine
              </button>
           </div>
