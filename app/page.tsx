@@ -149,7 +149,7 @@ const Footer = () => (
           <ul className="space-y-2">
             <li><a href="#" className="hover:text-white transition">Privacy</a></li>
             <li><a href="#" className="hover:text-white transition">Terms</a></li>
-            <li><a href="https://supabase.com/dashboard" target="_blank" className="hover:text-white transition opacity-50 hover:opacity-100">Admin</a></li>
+            <li><a href="https://sela-wine.vercel.app/admin/login" target="_blank" className="hover:text-white transition opacity-50 hover:opacity-100">Admin</a></li>
           </ul>
         </div>
       </div>
