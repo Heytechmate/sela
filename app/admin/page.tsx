@@ -8,9 +8,8 @@ import * as XLSX from 'xlsx';
 import { 
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
   Settings, Package, ShoppingCart, ChevronDown, ChevronUp, 
-  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, 
-  FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
-  ArchiveX, AlertTriangle, Clock, Menu, Download, Search, UploadCloud // <--- Added here
+  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
+  ArchiveX, AlertTriangle, Clock, Menu, Download, Search, UploadCloud
 } from "lucide-react";
 
 // --- TYPES ---
@@ -745,17 +744,22 @@ export default function AdminPage() {
             </div>
         )}
 
-        {/* PRODUCT FORM OVERLAY (FULL SCREEN ON MOBILE) */}
+        {/* PRODUCT FORM OVERLAY (FIXED HEIGHT) */}
         {isProductFormOpen && (
-            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex justify-center items-center p-0 md:p-4 overflow-y-auto">
-                <div className="bg-white md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 md:my-8 flex flex-col">
+            <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex justify-center items-center p-0 md:p-4">
+                <div className="bg-white md:rounded-xl shadow-2xl w-full h-full md:h-auto md:max-h-[90vh] md:max-w-5xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+                    
+                    {/* Header - Always Visible */}
                     <div className={`px-6 py-4 border-b border-gray-200 flex justify-between items-center ${editingId ? 'bg-yellow-50' : 'bg-gray-50'} shrink-0`}>
                         <h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${editingId ? 'text-yellow-700' : 'text-gray-500'}`}>{editingId ? <><Pencil className="w-4 h-4" /> Edit Product</> : <><Plus className="w-4 h-4" /> New Product</>}</h2>
                         <button onClick={cancelEditing} className="text-gray-400 hover:text-black transition p-2"><X className="w-6 h-6" /></button>
                     </div>
                     
+                    {/* Scrollable Form Content */}
                     <form onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-6 space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            
+                            {/* LEFT COLUMN */}
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div><label className="text-xs font-bold text-gray-500 mb-1 block">Brand Name</label><input required className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} /></div>
@@ -792,6 +796,8 @@ export default function AdminPage() {
                                 </div>
                                 <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
                             </div>
+
+                            {/* RIGHT COLUMN */}
                             <div className="space-y-6">
                                 <div className="space-y-4"><label className="text-xs font-bold text-gray-900 uppercase">Product Media</label><div className="flex gap-4 overflow-x-auto pb-2"><div className="relative w-32 h-32 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition cursor-pointer overflow-hidden shrink-0"><input type="file" accept="image/*" onChange={(e) => setMainImage(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />{mainImage ? (<Image src={URL.createObjectURL(mainImage)} alt="Preview" fill className="object-cover" />) : existingMainImage ? (<Image src={existingMainImage} alt="Existing" fill className="object-cover" />) : (<div className="text-center p-1"><ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-50" /><span className="text-[10px] font-bold">MAIN IMAGE</span></div>)}</div><div className="flex-1 border-2 border-dashed border-gray-200 rounded-xl p-3 flex gap-3 overflow-x-auto items-center">{existingGallery.map((url, i) => (<div key={`exist-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200 group"><Image src={url} alt="" fill className="object-cover" /><button type="button" onClick={() => setExistingGallery(existingGallery.filter((_, idx) => idx !== i))} className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl opacity-0 group-hover:opacity-100 transition"><X className="w-3 h-3" /></button></div>))}{galleryFiles.map((file, i) => (<div key={`new-${i}`} className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-blue-200"><Image src={URL.createObjectURL(file)} alt="" fill className="object-cover" /></div>))}<div className="relative w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-100"><input type="file" multiple accept="image/*" onChange={(e) => setGalleryFiles(prev => [...prev, ...Array.from(e.target.files || [])])} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" /><Plus className="w-5 h-5 text-gray-400" /></div></div></div></div>
                                 <div className="bg-gray-50 p-5 rounded-xl border border-gray-200"><label className="text-xs font-bold text-gray-500 uppercase block mb-3">Variants & Stock</label>
