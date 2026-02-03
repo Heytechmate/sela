@@ -8,7 +8,8 @@ import * as XLSX from 'xlsx';
 import { 
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
   Settings, Package, ShoppingCart, ChevronDown, ChevronUp, 
-  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
+  Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, 
+  FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
   ArchiveX, AlertTriangle, Clock, Menu, Download, Search, UploadCloud
 } from "lucide-react";
 
@@ -159,7 +160,7 @@ export default function AdminPage() {
       localStorage.setItem("adminActiveTab", tab);
       if (tab !== "products") setIsProductFormOpen(false); 
       if (tab === "orders" || tab === "cancelled") { fetchProducts(); fetchOrders(); }
-      setIsMobileMenuOpen(false); // Close mobile menu on select 
+      setIsMobileMenuOpen(false); 
   };
 
   async function fetchProducts() { 
@@ -852,12 +853,188 @@ export default function AdminPage() {
                         </div>
                     </form>
                     
+                    {/* Footer - Always Visible */}
                     <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-white shrink-0">
                         <button type="button" onClick={cancelEditing} className="px-6 py-3 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition">Cancel</button>
                         <button onClick={(e) => handleSaveProduct(e as any)} disabled={uploading} className={`px-8 py-3 text-white rounded-xl text-sm font-bold shadow-lg transition flex items-center gap-2 ${editingId ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-black hover:bg-gray-800'}`}>{uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingId ? "Update" : "Save"}</button>
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* ORDERS TAB (ACTIVE) */}
+        {activeTab === "orders" && (
+             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                
+                {/* METRIC CARDS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+                    {/* Today Revenue */}
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-3 opacity-10"><DollarSign className="w-12 h-12" /></div>
+                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Today's Revenue</h3>
+                        <p className="text-xl md:text-2xl font-bold">{settings.currency} {todayRevenue.toLocaleString()}</p>
+                    </div>
+                    {/* Today Profit */}
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-3 opacity-10"><TrendingUp className="w-12 h-12 text-green-600" /></div>
+                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Today's Profit</h3>
+                        <p className="text-xl md:text-2xl font-bold text-green-600">+{settings.currency} {todayProfit.toLocaleString()}</p>
+                    </div>
+                    {/* Total Revenue */}
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Total Revenue</h3>
+                        <p className="text-xl md:text-2xl font-bold text-gray-700">{settings.currency} {totalRevenue.toLocaleString()}</p>
+                    </div>
+                    {/* Total Profit */}
+                    <div className="bg-white p-4 md:p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase mb-1">Total Profit</h3>
+                        <p className="text-xl md:text-2xl font-bold text-green-700">+{settings.currency} {totalProfit.toLocaleString()}</p>
+                    </div>
+                </div>
+
+                {/* ORDERS LIST */}
+                <div className="space-y-8">
+                    
+                    {/* TODAY'S ORDERS (Always Open) */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-blue-900 flex items-center gap-2">
+                                <Calendar className="w-4 h-4" /> Today's Activity
+                            </h2>
+                            <button onClick={fetchOrders} className="text-xs font-bold bg-white border border-blue-200 text-blue-700 px-3 py-1 rounded hover:bg-blue-100"><RefreshCw className="w-3 h-3" /></button>
+                        </div>
+                        {todayOrders.length === 0 ? (
+                            <div className="p-8 text-center text-gray-400 text-sm italic">No active orders today.</div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {todayOrders.map(order => (
+                                    <div key={order.id} className="group">
+                                            <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-yellow-500'}`}>{order.status[0]}</div>
+                                                    <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleTimeString()} • {order.items.length} Items</p></div>
+                                                </div>
+                                                <div className="flex items-center gap-6 justify-between w-full md:w-auto">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                        <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                        {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p><button onClick={(e) => { e.stopPropagation(); generateReceipt(order); }} className="mt-4 text-xs font-bold bg-black text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-800 transition"><Printer className="w-3 h-3" /> Print Receipt</button></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* PAST ORDERS (Collapsible & Paginated) */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div 
+                           onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+                           className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition"
+                        >
+                            <h2 className="text-sm font-bold uppercase tracking-widest text-gray-600 flex items-center gap-2">
+                                <ShoppingCart className="w-4 h-4" /> Order History ({pastOrders.length})
+                            </h2>
+                            <button className="text-gray-400">
+                                {isHistoryOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
+                        </div>
+                        
+                        {isHistoryOpen && (
+                            <div className="animate-in slide-in-from-top-2">
+                                <div className="divide-y divide-gray-100">
+                                    {currentHistoryOrders.map(order => (
+                                        <div key={order.id} className="group">
+                                            <div className={`p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition cursor-pointer hover:bg-gray-50`} onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs ${order.status === 'Paid' ? 'bg-green-500' : order.status === 'Shipped' ? 'bg-blue-500' : 'bg-gray-400'}`}>{order.status[0]}</div>
+                                                    <div><h3 className="text-sm font-bold">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
+                                                </div>
+                                                <div className="flex items-center gap-6 justify-between w-full md:w-auto">
+                                                    <div className="text-right">
+                                                        <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                        <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
+                                                    </div>
+                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                </div>
+                                            </div>
+                                            {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* PAGINATION CONTROLS */}
+                                {pastOrders.length > ITEMS_PER_PAGE && (
+                                    <div className="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50">
+                                            <button 
+                                                disabled={historyPage === 1}
+                                                onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                                className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
+                                            >
+                                                <ChevronLeft className="w-4 h-4" /> Previous
+                                            </button>
+                                            <span className="text-xs font-medium text-gray-500">Page {historyPage} of {totalHistoryPages}</span>
+                                            <button 
+                                                disabled={historyPage === totalHistoryPages}
+                                                onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                                                className="flex items-center gap-1 text-xs font-bold text-gray-600 hover:text-black disabled:opacity-30 disabled:hover:text-gray-600"
+                                            >
+                                                Next <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+             </div>
+        )}
+
+        {/* CANCELLED ORDERS TAB */}
+        {activeTab === "cancelled" && (
+             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex justify-between items-center">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-red-900 flex items-center gap-2">
+                            <ArchiveX className="w-4 h-4" /> Cancelled Orders ({cancelledOrdersList.length})
+                        </h2>
+                    </div>
+                    {cancelledOrdersList.length === 0 ? (
+                        <div className="p-8 text-center text-gray-400 text-sm italic">No cancelled orders.</div>
+                    ) : (
+                        <div className="divide-y divide-gray-100">
+                            {cancelledOrdersList.map(order => (
+                                <div key={order.id} className="group">
+                                    <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition bg-red-50/30 hover:bg-red-50 cursor-pointer" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs bg-red-500">C</div>
+                                                <div><h3 className="text-sm font-bold line-through text-gray-500">#{order.id} - {order.customer_name}</h3><p className="text-xs text-gray-400">{new Date(order.created_at).toLocaleDateString()} • {order.items.length} Items</p></div>
+                                            </div>
+                                            <div className="flex items-center gap-6 justify-between w-full md:w-auto">
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold font-mono text-gray-400 line-through">{order.currency} {order.total_price.toLocaleString()}</p>
+                                                    <p className="text-[10px] font-bold text-red-400 bg-red-50 px-1 rounded inline-block">Lost Profit: {calculateOrderProfit(order).toLocaleString()}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold px-3 py-1 rounded border bg-red-100 text-red-700 border-red-200">Cancelled</span>
+                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
+                                                </div>
+                                            </div>
+                                    </div>
+                                    {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items (Returned to Stock)</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono text-gray-400 line-through">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+             </div>
         )}
 
         {/* SETTINGS TAB */}
