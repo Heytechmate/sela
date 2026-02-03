@@ -9,7 +9,7 @@ import {
   Search, ShoppingBag, X, Minus, Plus, ArrowRight, Loader2, Star, 
   CheckCircle, AlertCircle, MessageCircle, ChevronLeft, ChevronRight,
   ClipboardList, Clock, Sparkles, Sun, Moon, User, Printer, Trash2,
-  Instagram, Facebook, Mail 
+  Instagram, Facebook, Mail, ImageOff
 } from "lucide-react";
 
 // --- TYPES ---
@@ -21,6 +21,7 @@ type Product = {
   price: number; 
   original_price?: number; 
   category: string;
+  gender?: string; // Gender field
   description?: string;
   tags?: string[];
   image_url: string;
@@ -171,6 +172,7 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [activeGender, setActiveGender] = useState("All"); // DEFAULT: Show Everything
   const [showCart, setShowCart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -228,19 +230,17 @@ export default function Home() {
           const { data: productsData } = await supabase.from('products').select('*').eq('is_active', true).order('id', { ascending: false });
           if (productsData) {
             setProducts(productsData);
-            const allCategories = productsData.map(item => item.category);
-            const hasSaleItems = productsData.some(p => p.is_on_sale);
-            const uniqueCategories = Array.from(new Set(allCategories)).sort();
-            setCategories(hasSaleItems ? ["All", "SALE", ...uniqueCategories] : ["All", ...uniqueCategories]);
           }
           const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1).maybeSingle();
           if (settingsData) {
+             const validHeroImages = (settingsData.hero_images || []).filter((url: string) => url && url.trim() !== "");
+             
              setSiteSettings({
                 whatsapp: settingsData.whatsapp,
                 bannerText: settingsData.banner_text,
                 currency: settingsData.currency,
                 bannerInterval: settingsData.banner_interval || 5000,
-                heroImages: settingsData.hero_images || [],
+                heroImages: validHeroImages,
                 regionAssignments: settingsData.region_assignments || {}
              });
           }
@@ -248,6 +248,32 @@ export default function Home() {
     }
     init();
   }, [supabase]);
+
+  // --- DERIVE CATEGORIES BASED ON ACTIVE GENDER ---
+  useEffect(() => {
+    if (products.length > 0) {
+        // Filter products that match the active gender (or are Unisex)
+        // If "All", we show everything.
+        const genderSpecificProducts = products.filter(p => 
+            activeGender === 'All' 
+            ? true 
+            : (!p.gender || p.gender === activeGender || p.gender === 'Unisex')
+        );
+        
+        // Get unique categories from these products
+        const uniqueCats = Array.from(new Set(genderSpecificProducts.map(p => p.category))).sort();
+        
+        // Check if there are sale items for this view
+        const hasSaleItems = genderSpecificProducts.some(p => p.is_on_sale);
+        
+        setCategories(hasSaleItems ? ["All", "SALE", ...uniqueCats] : ["All", ...uniqueCats]);
+        
+        // Reset category ONLY if current category is not available in new gender view
+        if (!["All", "SALE", ...uniqueCats].includes(activeCategory)) {
+            setActiveCategory("All");
+        }
+    }
+  }, [products, activeGender, activeCategory]);
 
   const activeHeroImages = siteSettings.heroImages.length > 0 ? siteSettings.heroImages : DEFAULT_HERO_IMAGES;
 
@@ -504,7 +530,13 @@ export default function Home() {
   };
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const filteredProducts = products.filter(p => (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())));
+  
+  // --- FILTER PRODUCTS BY GENDER AND CATEGORY ---
+  const filteredProducts = products.filter(p => 
+    (activeGender === 'All' ? true : (!p.gender || p.gender === activeGender || p.gender === 'Unisex')) && // Gender Filter
+    (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && // Category Filter
+    (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())) // Search Filter
+  );
 
   return (
     // FIXED LAYOUT STRUCTURE FOR STICKY FOOTER
@@ -614,7 +646,31 @@ export default function Home() {
 
         {/* SHOP SECTION */}
         <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
-            <div className="flex justify-center gap-8 overflow-x-auto no-scrollbar px-6">
+            {/* GENDER TOGGLE */}
+            <div className="flex justify-center pt-4 pb-2">
+                <div className="inline-flex bg-gray-100 p-1 rounded-lg">
+                    <button 
+                        onClick={() => setActiveGender("All")}
+                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "All" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
+                    >
+                        All
+                    </button>
+                    <button 
+                        onClick={() => setActiveGender("Women")}
+                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "Women" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
+                    >
+                        Hers
+                    </button>
+                    <button 
+                        onClick={() => setActiveGender("Men")}
+                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "Men" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
+                    >
+                        Him
+                    </button>
+                </div>
+            </div>
+
+            <div className="flex justify-center gap-8 overflow-x-auto no-scrollbar px-6 pb-2">
             {categories.map((cat) => (
                 <button key={cat} onClick={() => setActiveCategory(cat)} className={`text-xs font-bold uppercase tracking-widest whitespace-nowrap pb-1 border-b-2 transition-all duration-300 ${activeCategory === cat ? 'border-black text-black' : 'border-transparent text-gray-400 hover:text-black'} ${cat === 'SALE' ? 'text-red-600 border-red-600' : ''}`}>{cat}</button>
             ))}
@@ -629,7 +685,15 @@ export default function Home() {
                     return (
                         <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
                         <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
-                            <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
+                            {/* --- SAFE IMAGE RENDER --- */}
+                            {product.image_url ? (
+                                <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-400">
+                                    <ImageOff className="w-8 h-8 opacity-50" />
+                                </div>
+                            )}
+                            
                             {product.is_on_sale && !isSoldOut && <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">Sale</div>}
                             {!isSoldOut && <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0">Quick Add</button>}
                         </div>
@@ -643,6 +707,11 @@ export default function Home() {
                         </div>
                     );
                 })}
+                {filteredProducts.length === 0 && (
+                    <div className="col-span-full text-center py-20 text-gray-400 text-sm">
+                        No products found in this collection.
+                    </div>
+                )}
             </div>
             )}
         </section>
@@ -663,7 +732,16 @@ export default function Home() {
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                  {cart.map((item, idx) => (
                       <div key={`${item.id}-${idx}`} className="flex gap-4">
-                        <div className="relative w-20 h-24 bg-gray-100 shrink-0"><Image src={item.image_url} alt={item.name} fill className="object-cover" unoptimized /></div>
+                        <div className="relative w-20 h-24 bg-gray-100 shrink-0 border border-gray-200 rounded">
+                            {/* SAFE CART IMAGE */}
+                            {item.image_url ? (
+                                <Image src={item.image_url} alt={item.name} fill className="object-cover" unoptimized />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-300">
+                                    <ShoppingBag className="w-6 h-6" />
+                                </div>
+                            )}
+                        </div>
                         <div className="flex-1 flex flex-col justify-between py-1">
                           <h3 className="text-sm font-bold uppercase line-clamp-1">{item.name}</h3>
                           <div className="flex justify-between items-center">
@@ -798,10 +876,30 @@ export default function Home() {
              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
                 <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white/80 rounded-full hover:bg-gray-100 transition"><X className="w-5 h-5" /></button>
                 <div className="w-full md:w-1/2 bg-gray-50 p-6 flex flex-col gap-4 overflow-y-auto">
-                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white border border-gray-100"><Image src={activeImage || selectedProduct.image_url} alt={selectedProduct.name} fill className="object-cover" unoptimized /></div>
+                    <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white border border-gray-100">
+                        {/* SAFE MODAL MAIN IMAGE */}
+                        {(activeImage || selectedProduct.image_url) ? (
+                            <Image src={activeImage || selectedProduct.image_url} alt={selectedProduct.name} fill className="object-cover" unoptimized />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-gray-300">
+                                <ImageOff className="w-12 h-12 opacity-50" />
+                            </div>
+                        )}
+                    </div>
                     <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                       <button onClick={() => setActiveImage(selectedProduct.image_url)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === selectedProduct.image_url ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}><Image src={selectedProduct.image_url} alt="Main" fill className="object-cover" unoptimized /></button>
-                       {selectedProduct.gallery?.map((img, i) => (<button key={i} onClick={() => setActiveImage(img)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === img ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}><Image src={img} alt="" fill className="object-cover" unoptimized /></button>))}
+                       <button onClick={() => setActiveImage(selectedProduct.image_url)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === selectedProduct.image_url ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}>
+                           {/* SAFE THUMBNAIL */}
+                           {selectedProduct.image_url ? (
+                               <Image src={selectedProduct.image_url} alt="Main" fill className="object-cover" unoptimized />
+                           ) : (
+                               <div className="absolute inset-0 flex items-center justify-center bg-gray-100"><ImageOff className="w-4 h-4 text-gray-300" /></div>
+                           )}
+                       </button>
+                       {selectedProduct.gallery?.map((img, i) => (
+                           <button key={i} onClick={() => setActiveImage(img)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === img ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}>
+                               <Image src={img} alt="" fill className="object-cover" unoptimized />
+                           </button>
+                       ))}
                     </div>
                 </div>
                 <div className="w-full md:w-1/2 p-6 md:p-10 flex flex-col overflow-y-auto">
@@ -855,6 +953,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-    </div> // CORRECT CLOSING TAG IS NOW </div>
+    </div>
   );
 }

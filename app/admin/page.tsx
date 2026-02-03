@@ -7,9 +7,9 @@ import { createBrowserClient } from "@supabase/ssr";
 import * as XLSX from 'xlsx'; 
 import { 
   Plus, Trash2, Loader2, Save, ImageIcon, LayoutGrid, X, RefreshCw, 
-  Settings, Package, UploadCloud, ShoppingCart, ChevronDown, ChevronUp, 
+  Settings, Package, ShoppingCart, ChevronDown, ChevronUp, 
   Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
-  ArchiveX, AlertTriangle, Clock, Menu
+  ArchiveX, AlertTriangle, Clock, Menu, Download, Search
 } from "lucide-react";
 
 // --- TYPES ---
@@ -34,6 +34,7 @@ type Product = {
   variants?: Variant[];
   usage_info?: string;
   ingredients?: string;
+  gender?: string;
 };
 
 type OrderItem = { name: string; qty: number; price: number; variant: string; }
@@ -103,7 +104,7 @@ export default function AdminPage() {
   const [form, setForm] = useState({ 
       name: "", brand: "", sku: "", stock: "0", 
       price: "", original_price: "", cost_price: "", 
-      category: "", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false 
+      category: "", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false, gender: "Women" 
   });
   
   // Settings State
@@ -276,6 +277,33 @@ export default function AdminPage() {
       }
   };
 
+  // --- TEMPLATE DOWNLOAD FUNCTION ---
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Name": "Example Product",
+        "Brand": "Sela",
+        "SKU": "SELA-001",
+        "Stock": 50,
+        "Price": 2500,
+        "Original Price": 3000,
+        "Cost Price": 1200,
+        "Category": "Face",
+        "Gender": "Women",
+        "Description": "Product description here...",
+        "Image URL": "https://...",
+        "Tags": "new,featured",
+        "Usage Info": "Apply daily.",
+        "Ingredients": "Water, Glycerin..."
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "sela_product_template.xlsx");
+  };
+
   const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -295,8 +323,14 @@ export default function AdminPage() {
                   sku: row['SKU'] || `AUTO-${Math.floor(Math.random() * 10000)}`,
                   stock: parseInt(row['Stock'] || '0'),
                   price: parseFloat(row['Price'] || '0'),
+                  original_price: parseFloat(row['Original Price'] || '0'),
+                  cost_price: parseFloat(row['Cost Price'] || '0'),
                   category: row['Category'] || "Uncategorized",
+                  gender: row['Gender'] || "Women",
                   description: row['Description'] || "",
+                  tags: row['Tags'] ? row['Tags'].split(',').map((t:string) => t.trim()) : [],
+                  usage_info: row['Usage Info'] || "",
+                  ingredients: row['Ingredients'] || "",
                   image_url: row['Image URL'] || "", 
                   is_active: true,
                   is_on_sale: false 
@@ -340,43 +374,91 @@ export default function AdminPage() {
   
   const handleSaveProduct = async (e: React.FormEvent) => {
       e.preventDefault();
+      setUploading(true);
       
-      let finalImageUrl = existingMainImage;
-      if (mainImage) { 
-          const fd = new FormData(); 
-          fd.append("file", mainImage); 
-          const res = await fetch("/api/upload", { method: "POST", body: fd }); 
-          if (res.ok) { const d = await res.json(); finalImageUrl = d.url; } 
+      try {
+          let finalImageUrl = existingMainImage;
+
+          // 1. UPLOAD MAIN IMAGE TO SUPABASE
+          if (mainImage) { 
+              const fileExt = mainImage.name.split('.').pop();
+              const fileName = `${Math.random()}.${fileExt}`;
+              const filePath = `product-images/${fileName}`;
+
+              const { error: uploadError } = await supabase.storage
+                  .from('products') 
+                  .upload(filePath, mainImage);
+
+              if (uploadError) throw uploadError;
+
+              const { data: { publicUrl } } = supabase.storage
+                  .from('products')
+                  .getPublicUrl(filePath);
+
+              finalImageUrl = publicUrl;
+          }
+          
+          // 2. UPLOAD GALLERY IMAGES
+          const newGalleryUrls = [];
+          for (const file of galleryFiles) { 
+              const fileExt = file.name.split('.').pop();
+              const fileName = `${Math.random()}.${fileExt}`;
+              const filePath = `product-gallery/${fileName}`;
+
+              const { error: uploadError } = await supabase.storage
+                  .from('products')
+                  .upload(filePath, file);
+              
+              if (uploadError) throw uploadError;
+
+              const { data: { publicUrl } } = supabase.storage
+                  .from('products')
+                  .getPublicUrl(filePath);
+              
+              newGalleryUrls.push(publicUrl);
+          }
+          
+          // 3. SAVE TO DATABASE
+          const productData = { 
+              name: form.name, 
+              brand: form.brand, 
+              sku: form.sku, 
+              stock: parseInt(form.stock) || 0, 
+              price: parseFloat(form.price) || 0, 
+              original_price: parseFloat(form.original_price) || 0,
+              cost_price: parseFloat(form.cost_price) || 0,
+              category: form.category, 
+              gender: form.gender,
+              description: form.description, 
+              tags: form.tags.split(',').filter(t => t.trim() !== ""), 
+              image_url: finalImageUrl, 
+              gallery: [...existingGallery, ...newGalleryUrls], 
+              variants: variants, 
+              usage_info: form.usage_info, 
+              ingredients: form.ingredients, 
+              is_active: true, 
+              is_on_sale: form.is_on_sale 
+          };
+          
+          if (editingId) { 
+              const { error } = await supabase.from('products').update(productData).eq('id', editingId); 
+              if (error) throw error;
+              alert("Product Updated Successfully!"); 
+          } else { 
+              const { error } = await supabase.from('products').insert(productData); 
+              if (error) throw error;
+              alert("Product Created Successfully!"); 
+          }
+
+          cancelEditing(); 
+          fetchProducts();
+
+      } catch (error: any) {
+          console.error("Error saving product:", error);
+          alert("Error: " + error.message);
+      } finally {
+          setUploading(false);
       }
-      
-      const newGallery = [];
-      for (const f of galleryFiles) { 
-          const fd = new FormData(); 
-          fd.append("file", f); 
-          const res = await fetch("/api/upload", { method: "POST", body: fd }); 
-          if (res.ok) { const d = await res.json(); newGallery.push(d.url); } 
-      }
-      
-      const productData = { 
-          name: form.name, brand: form.brand, sku: form.sku, stock: parseInt(form.stock), 
-          price: parseFloat(form.price), 
-          original_price: parseFloat(form.original_price) || 0,
-          cost_price: parseFloat(form.cost_price) || 0,
-          category: form.category, description: form.description, 
-          tags: form.tags.split(',').filter(t => t), image_url: finalImageUrl, 
-          gallery: [...existingGallery, ...newGallery], variants, usage_info: form.usage_info, 
-          ingredients: form.ingredients, is_active: true, is_on_sale: form.is_on_sale 
-      };
-      
-      if (editingId) { 
-          await supabase.from('products').update(productData).eq('id', editingId); 
-          alert("Updated!"); 
-      } else { 
-          await supabase.from('products').insert(productData); 
-          alert("Created!"); 
-      }
-      cancelEditing(); 
-      fetchProducts();
   };
 
   const openCreateForm = () => { cancelEditing(); setIsProductFormOpen(true); };
@@ -388,7 +470,7 @@ export default function AdminPage() {
           price: p.price.toString(), 
           original_price: p.original_price ? p.original_price.toString() : "",
           cost_price: p.cost_price ? p.cost_price.toString() : "",
-          category: p.category, description: p.description || "", tags: p.tags?.join(",") || "", 
+          category: p.category, gender: p.gender || "Women", description: p.description || "", tags: p.tags?.join(",") || "", 
           usage_info: p.usage_info || "", ingredients: p.ingredients || "", 
           is_on_sale: p.is_on_sale || false 
       }); 
@@ -398,7 +480,7 @@ export default function AdminPage() {
   
   const cancelEditing = () => { 
       setEditingId(null); 
-      setForm({ name: "", brand: "", sku: "", stock: "0", price: "", original_price: "", cost_price: "", category: "", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false }); 
+      setForm({ name: "", brand: "", sku: "", stock: "0", price: "", original_price: "", cost_price: "", category: "", gender: "Women", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false }); 
       setVariants([]); setMainImage(null); setExistingMainImage(""); 
       setExistingGallery([]); setIsProductFormOpen(false); 
   };
@@ -580,6 +662,9 @@ export default function AdminPage() {
                     <div className="p-4 md:p-6 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
                         <input placeholder="Search products..." className="w-full md:max-w-sm pl-4 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium outline-none focus:ring-2 focus:ring-black/5" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                         <div className="flex gap-2 w-full md:w-auto">
+                            <button onClick={handleDownloadTemplate} className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition" title="Download Template">
+                                <Download className="w-4 h-4"/> <span className="hidden md:inline">Template</span>
+                            </button>
                             <label className="flex-1 md:flex-none justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition cursor-pointer">
                                 {uploading ? <Loader2 className="w-4 h-4 animate-spin"/> : <FileSpreadsheet className="w-4 h-4"/>} <span className="hidden md:inline">Import Excel</span><span className="md:hidden">Import</span>
                                 <input type="file" accept=".xlsx, .xls, .csv" onChange={handleBulkUpload} className="hidden" />
@@ -606,7 +691,13 @@ export default function AdminPage() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-4">
                                   <div className="relative w-12 h-12 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200">
-                                    <Image src={product.image_url} alt="" fill className="object-cover" />
+                                    {product.image_url ? (
+                                      <Image src={product.image_url} alt="" fill className="object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-300">
+                                        <ImageIcon className="w-4 h-4" />
+                                      </div>
+                                    )}
                                   </div>
                                   <div>
                                     <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name} {product.is_on_sale && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold ml-2">SALE</span>}</p>
@@ -683,7 +774,21 @@ export default function AdminPage() {
                                     <label htmlFor="saleToggle" className="text-sm font-bold text-red-700 cursor-pointer flex items-center gap-2"><Megaphone className="w-4 h-4" /> Mark as Promotion / Sale Item</label>
                                 </div>
 
-                                <div><label className="text-xs font-bold text-gray-500 mb-1 block">Category</label><input list="category-options" required className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})} /><datalist id="category-options">{SUGGESTED_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 mb-1 block">Collection (Gender)</label>
+                                        <select className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}>
+                                            <option value="Women">Women (Hers)</option>
+                                            <option value="Men">Men (Him)</option>
+                                            <option value="Unisex">Unisex</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 mb-1 block">Category</label>
+                                        <input list="category-options" required className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
+                                        <datalist id="category-options">{SUGGESTED_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
+                                    </div>
+                                </div>
                                 <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>
                             </div>
                             <div className="space-y-6">
@@ -847,10 +952,8 @@ export default function AdminPage() {
                                                         <p className="text-sm font-bold font-mono">{order.currency} {order.total_price.toLocaleString()}</p>
                                                         <p className="text-[10px] font-bold text-green-600 bg-green-50 px-1 rounded inline-block">Profit: +{calculateOrderProfit(order).toLocaleString()}</p>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
-                                                        {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
-                                                    </div>
+                                                    <select onClick={(e) => e.stopPropagation()} value={order.status} onChange={(e) => updateOrderStatus(order.id, e.target.value)} className={`text-xs font-bold px-3 py-1 rounded border outline-none cursor-pointer ${order.status === 'Paid' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Shipped">Shipped</option><option value="Cancelled">Cancelled</option></select>
+                                                    {expandedOrderId === order.id ? <ChevronUp className="w-4 h-4 text-gray-400"/> : <ChevronDown className="w-4 h-4 text-gray-400"/>}
                                                 </div>
                                             </div>
                                             {expandedOrderId === order.id && (<div className="bg-gray-50 px-6 py-6 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Customer Details</h4><p className="text-sm font-bold">{order.customer_name}</p><p className="text-sm text-gray-600">{order.customer_phone}</p><p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{order.customer_address}</p></div><div><h4 className="text-xs font-bold text-gray-500 uppercase mb-3">Order Items</h4><div className="space-y-2">{order.items.map((item, idx) => (<div key={idx} className="flex justify-between text-sm bg-white p-2 rounded border border-gray-200"><span>{item.name} <span className="text-gray-400">({item.variant})</span> x{item.qty}</span><span className="font-mono">{order.currency} {(item.price * item.qty).toLocaleString()}</span></div>))}</div></div></div></div>)}
