@@ -10,7 +10,7 @@ import {
   Settings, Package, ShoppingCart, ChevronDown, ChevronUp, 
   Printer, FileText, Pencil, Ban, Box, MapPin, Phone, Users, ArrowLeft, LogOut, 
   FileSpreadsheet, Megaphone, TrendingUp, Calendar, DollarSign, ChevronLeft, ChevronRight,
-  ArchiveX, AlertTriangle, Clock, Menu, Download, Search, UploadCloud
+  ArchiveX, AlertTriangle, Clock, Menu, Download, Search, UploadCloud, Tag
 } from "lucide-react";
 
 // --- TYPES ---
@@ -26,11 +26,13 @@ type Product = {
   original_price: number; 
   cost_price: number; 
   category: string;
+  subcategory?: string; // Added Subcategory
   description: string;
   tags: string[];
   image_url: string;
   is_active: boolean;
   is_on_sale: boolean;
+  sale_end_date?: string; // Added Sale Timer
   gallery?: string[];
   variants?: Variant[];
   usage_info?: string;
@@ -105,7 +107,8 @@ export default function AdminPage() {
   const [form, setForm] = useState({ 
       name: "", brand: "", sku: "", stock: "0", 
       price: "", original_price: "", cost_price: "", 
-      category: "", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false, gender: "Women" 
+      category: "", subcategory: "", description: "", tags: "", usage_info: "", ingredients: "", 
+      is_on_sale: false, sale_end_date: "", gender: "Women" 
   });
   
   // Settings State
@@ -290,6 +293,7 @@ export default function AdminPage() {
         "Original Price": 3000,
         "Cost Price": 1200,
         "Category": "Face",
+        "Subcategory": "Shampoo",
         "Gender": "Women",
         "Description": "Product description here...",
         "Image URL": "https://...",
@@ -327,6 +331,7 @@ export default function AdminPage() {
                   original_price: parseFloat(row['Original Price'] || '0'),
                   cost_price: parseFloat(row['Cost Price'] || '0'),
                   category: row['Category'] || "Uncategorized",
+                  subcategory: row['Subcategory'] || "",
                   gender: row['Gender'] || "Women",
                   description: row['Description'] || "",
                   tags: row['Tags'] ? row['Tags'].split(',').map((t:string) => t.trim()) : [],
@@ -428,7 +433,8 @@ export default function AdminPage() {
               price: parseFloat(form.price) || 0, 
               original_price: parseFloat(form.original_price) || 0,
               cost_price: parseFloat(form.cost_price) || 0,
-              category: form.category, 
+              category: form.category,
+              subcategory: form.subcategory, // Saved here
               gender: form.gender,
               description: form.description, 
               tags: form.tags.split(',').filter(t => t.trim() !== ""), 
@@ -438,7 +444,8 @@ export default function AdminPage() {
               usage_info: form.usage_info, 
               ingredients: form.ingredients, 
               is_active: true, 
-              is_on_sale: form.is_on_sale 
+              is_on_sale: form.is_on_sale,
+              sale_end_date: form.sale_end_date // Saved here
           };
           
           if (editingId) { 
@@ -471,9 +478,12 @@ export default function AdminPage() {
           price: p.price.toString(), 
           original_price: p.original_price ? p.original_price.toString() : "",
           cost_price: p.cost_price ? p.cost_price.toString() : "",
-          category: p.category, gender: p.gender || "Women", description: p.description || "", tags: p.tags?.join(",") || "", 
+          category: p.category, 
+          subcategory: p.subcategory || "", // Load Subcategory
+          gender: p.gender || "Women", description: p.description || "", tags: p.tags?.join(",") || "", 
           usage_info: p.usage_info || "", ingredients: p.ingredients || "", 
-          is_on_sale: p.is_on_sale || false 
+          is_on_sale: p.is_on_sale || false,
+          sale_end_date: p.sale_end_date || "" // Load Sale Date
       }); 
       setVariants(p.variants || []); setExistingMainImage(p.image_url); 
       setExistingGallery(p.gallery || []); setGalleryFiles([]); setIsProductFormOpen(true); 
@@ -481,7 +491,11 @@ export default function AdminPage() {
   
   const cancelEditing = () => { 
       setEditingId(null); 
-      setForm({ name: "", brand: "", sku: "", stock: "0", price: "", original_price: "", cost_price: "", category: "", gender: "Women", description: "", tags: "", usage_info: "", ingredients: "", is_on_sale: false }); 
+      setForm({ 
+          name: "", brand: "", sku: "", stock: "0", price: "", original_price: "", cost_price: "", 
+          category: "", subcategory: "", gender: "Women", description: "", tags: "", 
+          usage_info: "", ingredients: "", is_on_sale: false, sale_end_date: ""
+      }); 
       setVariants([]); setMainImage(null); setExistingMainImage(""); 
       setExistingGallery([]); setIsProductFormOpen(false); 
   };
@@ -534,7 +548,7 @@ export default function AdminPage() {
           
           setSettings(prev => ({...prev, hero_images: updatedHeroImages}));
           setHeroFiles([]); 
-          await fetchSettings();
+          await fetchSettings(); // Force refresh to fix WhatsApp issue
           alert("Settings Saved Successfully!");
       } catch (error: any) {
           console.error("Error saving settings:", error);
@@ -775,9 +789,17 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs font-medium text-gray-500"><TrendingUp className="w-4 h-4 text-green-600" /> Estimated Profit: <span className="text-green-700 font-bold">{settings.currency} {((parseFloat(form.price)||0) - (parseFloat(form.cost_price)||0)).toLocaleString()}</span></div>
 
-                                <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100">
-                                    <input type="checkbox" id="saleToggle" checked={form.is_on_sale} onChange={(e) => setForm({...form, is_on_sale: e.target.checked})} className="w-5 h-5 accent-red-600" />
-                                    <label htmlFor="saleToggle" className="text-sm font-bold text-red-700 cursor-pointer flex items-center gap-2"><Megaphone className="w-4 h-4" /> Mark as Promotion / Sale Item</label>
+                                <div className="flex flex-col gap-3 bg-red-50 p-4 rounded-lg border border-red-100">
+                                    <div className="flex items-center gap-3">
+                                      <input type="checkbox" id="saleToggle" checked={form.is_on_sale} onChange={(e) => setForm({...form, is_on_sale: e.target.checked})} className="w-5 h-5 accent-red-600" />
+                                      <label htmlFor="saleToggle" className="text-sm font-bold text-red-700 cursor-pointer flex items-center gap-2"><Megaphone className="w-4 h-4" /> Mark as Promotion / Sale Item</label>
+                                    </div>
+                                    {form.is_on_sale && (
+                                      <div className="animate-in slide-in-from-top-2">
+                                        <label className="text-xs font-bold text-red-800 uppercase block mb-1">Sale Ends On</label>
+                                        <input type="date" className="w-full bg-white border border-red-200 rounded-lg p-2 text-xs" value={form.sale_end_date} onChange={(e) => setForm({...form, sale_end_date: e.target.value})} />
+                                      </div>
+                                    )}
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
@@ -793,6 +815,10 @@ export default function AdminPage() {
                                         <label className="text-xs font-bold text-gray-500 mb-1 block">Category</label>
                                         <input list="category-options" required className="w-full bg-white border border-blue-100 rounded-lg p-3 text-sm font-medium outline-none" value={form.category} onChange={e => setForm({...form, category: e.target.value})} />
                                         <datalist id="category-options">{SUGGESTED_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-bold text-gray-500 mb-1 block">Sub-Category (e.g. Shampoo)</label>
+                                        <input className="w-full bg-white border border-gray-200 rounded-lg p-3 text-sm font-medium outline-none" value={form.subcategory} onChange={e => setForm({...form, subcategory: e.target.value})} placeholder="Optional" />
                                     </div>
                                 </div>
                                 <div><label className="text-xs font-bold text-gray-500 mb-1 block">Description</label><textarea className="w-full bg-gray-50 border-none rounded-lg p-3 text-sm font-medium outline-none h-32" value={form.description} onChange={e => setForm({...form, description: e.target.value})} /></div>

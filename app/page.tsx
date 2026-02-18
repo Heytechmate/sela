@@ -21,7 +21,8 @@ type Product = {
   price: number; 
   original_price?: number; 
   category: string;
-  gender?: string; // Gender field
+  subcategory?: string; 
+  gender?: string; 
   description?: string;
   tags?: string[];
   image_url: string;
@@ -30,6 +31,9 @@ type Product = {
   variants?: Variant[];
   stock: number;
   is_on_sale?: boolean;
+  sale_end_date?: string; 
+  usage_info?: string; 
+  ingredients?: string; 
 };
 
 type CartItem = Product & { quantity: number; selectedVariant: Variant | null };
@@ -79,35 +83,41 @@ const SKIN_TYPE_PRESETS: Record<string, { am: string[], pm: string[] }> = {
 };
 
 const MOTIVATIONAL_QUOTES = [
-  "Consistency is the only magic pill.", "Invest in your skin. It is going to represent you for a very long time.",
-  "Your skin is 90% of your selfie.", "Skincare is a marathon, not a sprint.", "Glow is an inside job.",
-  "Healthy skin is always in.", "Self-care is not selfish.", "Beautiful skin requires commitment, not a miracle.",
-  "Filter free is the goal.", "Exfoliate the bad vibes.", "Your skin is an investment, not an expense.",
-  "Sleep, drink water, and treat your skin.", "Confidence breeds beauty.", "SPF is your BFF.",
-  "May your coffee be strong and your SPF be stronger.", "Facials are my workout.", "Beauty is being comfortable in your own skin.",
-  "You are one facial away from a good mood.", "Last minute skincare is better than no skincare.", "Peace, Love, and Face Masks.",
-  "Less stress, more facials.", "Slay the day, but wash your face first.", "Skincare first, makeup second, smile always.",
-  "Great skin doesn't happen by chance, it happens by appointment.", "Keep calm and moisturize on.", "A little progress each day adds up to big results.",
-  "Respect your skin.", "Trust the process. Your skin is healing.", "Real skin has texture. Real skin has pores. Real skin is beautiful.",
-  "Your skin is the best accessory. Take care of it.", "Every day is a fresh start for your skin.", "Don't let yesterday take up too much of today.",
-  "Small daily improvements are the key to staggering long-term results.", "You glow differently when you take care of yourself.",
-  "Protect your peace. Protect your skin.", "Hydrate. Moisturize. Repeat.", "Self-love looks good on you.", "Routine is what turns a dream into reality.",
-  "Be patient with your skin.", "Beauty begins the moment you decide to be yourself.", "Skin cells turnover every 28 days. As we age this rate decreases.",
-  "Aging is a fact of life. Looking your age is not.", "Sunscreen is the fountain of youth.", "Don't go to bed with your makeup on.",
-  "Your face is your canvas.", "Start your day with a grateful heart and a clean face.", "Love the skin you're in.",
-  "Time spent on yourself is never wasted.", "Cleanse, tone, moisturize, conquer.", "Focus on the good.", "Today is a perfect day to start.",
-  "Discipline is doing what needs to be done, even if you don't want to.", "Your future self will thank you.", "Make yourself a priority.",
-  "Relax, refresh, recharge.", "Inner beauty is great, but a little skincare never hurt.", "Life isn't perfect but your skin can be.",
-  "Serums are magic potions.", "Just keep glowing.", "Don't rush the process.", "Listen to your skin.", "Feed your skin with good ingredients.",
-  "Self-discipline is self-love.", "A healthy outside starts from the inside.", "Stress less, glow more.", "Good things come to those who cleanse.",
-  "Be your own kind of beautiful.", "Let your skin breathe.", "Radiate positivity.", "Embrace your natural beauty.", "You are enough.",
-  "A good skincare routine is the secret to aging gracefully.", "Consistency beats intensity.", "Keep your standards high and your skin clear.",
-  "Face masks and chill.", "Get your glow on.", "Your skin remembers.", "Beauty is power, a smile is its sword.", "Give your skin a drink.",
-  "Be consistent.", "Nature gives you the face you have at twenty; it is up to you to merit the face you have at fifty.",
-  "Dermatologist tested, mother approved.", "Prevention is better than cure.", "Skincare is healthcare.", "The clearer the skin, the clearer the mind.",
-  "It’s not vanity, it’s maintenance.", "You can't buy happiness, but you can buy skincare.", "Keep shining.", "Every step counts.",
-  "Do it for the 'After' photo."
+  "Consistency is the only magic pill.", "Invest in your skin. It is going to represent you for a very long time."
 ];
+
+// --- COUNTDOWN TIMER COMPONENT ---
+const SaleTimer = ({ endDate }: { endDate: string }) => {
+  const [timeLeft, setTimeLeft] = useState<{days: number, hours: number, minutes: number, seconds: number} | null>(null);
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const difference = +new Date(endDate) - +new Date();
+      if (difference > 0) {
+        return {
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((difference / 1000 / 60) % 60),
+          seconds: Math.floor((difference / 1000) % 60),
+        };
+      }
+      return null;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    const timer = setInterval(() => setTimeLeft(calculateTimeLeft()), 1000);
+    return () => clearInterval(timer);
+  }, [endDate]);
+
+  if (!timeLeft) return null;
+
+  return (
+    <div className="absolute top-2 left-2 bg-black/80 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 z-20 backdrop-blur-sm">
+      <Clock className="w-3 h-3" />
+      <span>{timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m left</span>
+    </div>
+  );
+};
 
 // --- COMPACT PREMIUM FOOTER ---
 const Footer = () => (
@@ -150,7 +160,7 @@ const Footer = () => (
           <ul className="space-y-2">
             <li><a href="#" className="hover:text-white transition">Privacy</a></li>
             <li><a href="#" className="hover:text-white transition">Terms</a></li>
-            <li><a href="https://sela-wine.vercel.app/admin/login" target="_blank" className="hover:text-white transition opacity-50 hover:opacity-100">Admin</a></li>
+            <li><a href="/admin/login" target="_blank" className="hover:text-white transition opacity-50 hover:opacity-100">Admin</a></li>
           </ul>
         </div>
       </div>
@@ -172,20 +182,20 @@ export default function Home() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [categories, setCategories] = useState<string[]>(["All"]);
   const [activeCategory, setActiveCategory] = useState("All");
-  const [activeGender, setActiveGender] = useState("All"); // DEFAULT: Show Everything
+  const [activeGender, setActiveGender] = useState("All"); 
   const [showCart, setShowCart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Settings
+  // Settings with SAFETY DEFAULTS to prevent empty source errors
   const [siteSettings, setSiteSettings] = useState({
     whatsapp: "94770000000",
     bannerText: "Welcome to Sela Cosmetics",
     currency: "LKR",
     bannerInterval: 5000,
-    heroImages: [] as string[],
+    heroImages: DEFAULT_HERO_IMAGES, // initialized with valid images
     regionAssignments: {} as Record<string, string>
   });
 
@@ -231,16 +241,18 @@ export default function Home() {
           if (productsData) {
             setProducts(productsData);
           }
+          // Fetch settings
           const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1).maybeSingle();
           if (settingsData) {
              const validHeroImages = (settingsData.hero_images || []).filter((url: string) => url && url.trim() !== "");
              
              setSiteSettings({
-                whatsapp: settingsData.whatsapp,
-                bannerText: settingsData.banner_text,
-                currency: settingsData.currency,
+                whatsapp: settingsData.whatsapp || "94770000000",
+                bannerText: settingsData.banner_text || "Welcome",
+                currency: settingsData.currency || "LKR",
                 bannerInterval: settingsData.banner_interval || 5000,
-                heroImages: validHeroImages,
+                // Fallback to DEFAULT if API returns empty array
+                heroImages: validHeroImages.length > 0 ? validHeroImages : DEFAULT_HERO_IMAGES,
                 regionAssignments: settingsData.region_assignments || {}
              });
           }
@@ -252,30 +264,26 @@ export default function Home() {
   // --- DERIVE CATEGORIES BASED ON ACTIVE GENDER ---
   useEffect(() => {
     if (products.length > 0) {
-        // Filter products that match the active gender (or are Unisex)
-        // If "All", we show everything.
         const genderSpecificProducts = products.filter(p => 
             activeGender === 'All' 
             ? true 
             : (!p.gender || p.gender === activeGender || p.gender === 'Unisex')
         );
         
-        // Get unique categories from these products
         const uniqueCats = Array.from(new Set(genderSpecificProducts.map(p => p.category))).sort();
         
-        // Check if there are sale items for this view
         const hasSaleItems = genderSpecificProducts.some(p => p.is_on_sale);
-        
         setCategories(hasSaleItems ? ["All", "SALE", ...uniqueCats] : ["All", ...uniqueCats]);
         
-        // Reset category ONLY if current category is not available in new gender view
         if (!["All", "SALE", ...uniqueCats].includes(activeCategory)) {
             setActiveCategory("All");
         }
     }
   }, [products, activeGender, activeCategory]);
 
-  const activeHeroImages = siteSettings.heroImages.length > 0 ? siteSettings.heroImages : DEFAULT_HERO_IMAGES;
+  const activeHeroImages = siteSettings.heroImages && siteSettings.heroImages.length > 0 
+    ? siteSettings.heroImages 
+    : DEFAULT_HERO_IMAGES;
 
   useEffect(() => {
     if (activeHeroImages.length <= 1) return;
@@ -357,25 +365,17 @@ export default function Home() {
   // --- PROFESSIONAL LANDSCAPE PDF GENERATOR ---
   const generateRoutinePDF = () => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    
-    // --- HELPER VARIABLES ---
-    const pageWidth = doc.internal.pageSize.getWidth(); // 297mm
-    const pageHeight = doc.internal.pageSize.getHeight(); // 210mm
-    const margin = 12; // Slightly smaller margin to maximize space
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 12;
     const contentWidth = pageWidth - (margin * 2);
-    
-    // Grid Calculations (Wider now!)
-    const dayWidth = 5.5; // Bigger circles for landscape
-    const gridStartX = pageWidth - margin - (dayWidth * 31); // Where circles start
-    const nameWidth = gridStartX - margin - 5; // Lots of space for names
-    
-    // Pick a Random Quote
+    const dayWidth = 5.5; 
+    const gridStartX = pageWidth - margin - (dayWidth * 31);
+    const nameWidth = gridStartX - margin - 5;
     const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
 
     let currentY = 15;
 
-    // --- 1. HEADER SIDE-BY-SIDE ---
-    // Left: Brand
     doc.setFont("times", "bold");
     doc.setFontSize(24);
     doc.text("SELA COSMETICS", margin, currentY + 5);
@@ -385,7 +385,6 @@ export default function Home() {
     doc.setCharSpace(2);
     doc.text("DAILY TRACKER", margin, currentY + 10);
     
-    // Right: User Details & Month
     doc.setCharSpace(0);
     doc.setFontSize(10);
     doc.text("PREPARED FOR:", pageWidth - margin - 80, currentY);
@@ -395,75 +394,55 @@ export default function Home() {
     doc.setLineWidth(0.2);
     doc.line(pageWidth - margin - 45, currentY + 1, pageWidth - margin, currentY + 1);
 
-    doc.setFont("helvetica", "normal");
-    doc.text("MONTH:", pageWidth - margin - 80, currentY + 8);
-    doc.line(pageWidth - margin - 45, currentY + 9, pageWidth - margin, currentY + 9);
+    currentY += 20;
 
-    currentY += 20; // Move down for cards
-
-    // --- HELPER FUNCTION TO DRAW A WIDE CARD ---
     const drawRoutineCard = (title: string, products: string[], startY: number, iconType: 'sun' | 'moon') => {
       const headerHeight = 12;
-      const rowHeight = 9; // Slightly tighter vertically
-      // Force at least 3 rows
+      const rowHeight = 9;
       const displayProducts = products.length > 0 ? products : ["", "", ""];
       const cardHeight = headerHeight + (displayProducts.length * rowHeight) + 4;
       
-      // Card Container
       doc.setDrawColor(0);
       doc.setLineWidth(0.3);
       doc.roundedRect(margin, startY, contentWidth, cardHeight, 3, 3, 'S');
 
-      // Title & Icon
       const textY = startY + 8;
       doc.setFont("times", "bold");
       doc.setFontSize(12);
       doc.text(title, margin + 12, textY);
       
-      // Icon
       doc.setLineWidth(0.5);
       if (iconType === 'sun') {
         doc.circle(margin + 6, textY - 1.2, 2, 'S');
-        doc.setLineWidth(0.1);
-        doc.line(margin + 6, textY - 4.2, margin + 6, textY - 3.2); // Top
-        doc.line(margin + 6, textY + 0.8, margin + 6, textY + 1.8); // Bottom
-        doc.line(margin + 3, textY - 1.2, margin + 4, textY - 1.2); // Left
-        doc.line(margin + 8, textY - 1.2, margin + 9, textY - 1.2); // Right
       } else {
         doc.setFillColor(0);
         doc.circle(margin + 6, textY - 1.2, 2, 'F');
         doc.setFillColor(255);
-        doc.circle(margin + 7, textY - 2.2, 1.8, 'F'); // Crescent cut
+        doc.circle(margin + 7, textY - 2.2, 1.8, 'F'); 
       }
 
-      // Days Grid Numbers
       doc.setFont("helvetica", "normal");
       doc.setFontSize(6);
       doc.setTextColor(120);
       for (let i = 0; i < 31; i++) {
         const xPos = gridStartX + (i * dayWidth) + (dayWidth/2);
-        // Label only 1, 5, 10...
         if ((i + 1) % 5 === 0 || i === 0) {
             doc.text((i + 1).toString(), xPos, textY, { align: "center" });
         }
       }
       doc.setTextColor(0);
 
-      // Separator
       doc.setLineWidth(0.1);
       doc.line(margin, startY + headerHeight, pageWidth - margin, startY + headerHeight);
 
-      // Rows
       let rowY = startY + headerHeight + 6;
       doc.setFontSize(10);
       
       displayProducts.forEach((prod) => {
-        // Line Guide
         doc.setDrawColor(220);
         doc.line(margin + 5, rowY + 1, gridStartX - 5, rowY + 1);
         doc.setDrawColor(0);
 
-        // Truncate Text
         let printText = prod;
         if (doc.getTextWidth(printText) > nameWidth) {
            while (doc.getTextWidth(printText + "...") > nameWidth && printText.length > 0) {
@@ -475,10 +454,9 @@ export default function Home() {
         doc.setFont("helvetica", "normal");
         doc.text(printText, margin + 5, rowY);
         
-        // Circles
         for (let i = 0; i < 31; i++) {
           const circleX = gridStartX + (i * dayWidth) + (dayWidth/2);
-          doc.circle(circleX, rowY - 1, 1.8, 'S'); // Larger 1.8mm circles
+          doc.circle(circleX, rowY - 1, 1.8, 'S');
         }
         
         rowY += rowHeight;
@@ -487,20 +465,17 @@ export default function Home() {
       return cardHeight;
     };
 
-    // --- DRAW CARDS ---
     const amHeight = drawRoutineCard("MORNING ROUTINE", routineForm.amProducts, currentY, 'sun');
-    currentY += amHeight + 8; // Small gap
+    currentY += amHeight + 8;
 
     const pmHeight = drawRoutineCard("EVENING ROUTINE", routineForm.pmProducts, currentY, 'moon');
     currentY += pmHeight + 12;
 
-    // --- RANDOM MOTIVATION QUOTE (Centered, Big) ---
     doc.setFont("times", "italic");
     doc.setFontSize(14);
-    doc.setTextColor(80); // Dark Gray
+    doc.setTextColor(80);
     doc.text(`“${randomQuote}”`, pageWidth / 2, currentY, { align: "center" });
 
-    // --- FOOTER ---
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(150);
@@ -521,9 +496,10 @@ export default function Home() {
         });
         if (error) throw error;
         
-        // WhatsApp Redirect
         const receipt = `ｧｾ *ORDER*\n側 ${customerDetails.name}\n腸 Total: ${siteSettings.currency} ${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}`;
+        
         const targetPhone = (siteSettings.regionAssignments || {})[customerDetails.city] || siteSettings.whatsapp;
+        
         setCart([]); setIsCheckoutOpen(false); setIsPlacingOrder(false);
         window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(receipt)}`, '_blank');
     } catch (err) { alert("Error placing order."); setIsPlacingOrder(false); }
@@ -531,15 +507,13 @@ export default function Home() {
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // --- FILTER PRODUCTS BY GENDER AND CATEGORY ---
   const filteredProducts = products.filter(p => 
-    (activeGender === 'All' ? true : (!p.gender || p.gender === activeGender || p.gender === 'Unisex')) && // Gender Filter
-    (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && // Category Filter
-    (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())) // Search Filter
+    (activeGender === 'All' ? true : (!p.gender || p.gender === activeGender || p.gender === 'Unisex')) && 
+    (activeCategory === 'All' ? true : activeCategory === 'SALE' ? p.is_on_sale : p.category === activeCategory) && 
+    (searchQuery === "" || p.name.toLowerCase().includes(searchQuery.toLowerCase())) 
   );
 
   return (
-    // FIXED LAYOUT STRUCTURE FOR STICKY FOOTER
     <div className="min-h-screen flex flex-col bg-white text-black font-sans selection:bg-black selection:text-white">
       
       <div className="bg-black text-white text-[10px] md:text-xs font-bold text-center py-2 tracking-widest uppercase">
@@ -572,13 +546,10 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* MAIN CONTENT GROWS TO FILL SPACE */}
       <main className="flex-grow">
       
-        {/* HERO SECTION (MOBILE OPTIMIZED) */}
+        {/* HERO SECTION */}
         <section className="relative h-[85vh] md:h-[80vh] w-full bg-[#f4f4f4] flex items-center justify-center overflow-hidden group">
-            
-            {/* ARROWS: Hidden on Mobile (hidden), Visible on Desktop (md:block) */}
             <button 
             onClick={() => setCurrentHeroIndex(prev => prev === 0 ? activeHeroImages.length - 1 : prev - 1)} 
             className="hidden md:block absolute left-4 z-20 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full backdrop-blur-md transition-all"
@@ -592,7 +563,6 @@ export default function Home() {
             <ChevronRight className="w-6 h-6" />
             </button>
 
-            {/* IMAGE */}
             <AnimatePresence mode="wait">
                 <motion.div 
                 key={currentHeroIndex} 
@@ -600,44 +570,34 @@ export default function Home() {
                 animate={{ opacity: 1, scale: 1 }} 
                 exit={{ opacity: 0 }} 
                 transition={{ duration: 1 }} 
-                className="absolute inset-0 bg-gray-900" // Dark background to help image contrast
+                className="absolute inset-0 bg-gray-900" 
                 >
-                    {/* Opacity lowered slightly on mobile for better text readability */}
-                    <Image 
-                    src={activeHeroImages[currentHeroIndex]} 
-                    alt="Hero" 
-                    fill 
-                    className="object-cover opacity-80 md:opacity-90" 
-                    priority 
-                    />
-                    {/* Gradient Overlay for better text visibility */}
+                    {/* SAFETY CHECK FOR IMAGE SRC */}
+                    {activeHeroImages[currentHeroIndex] && (
+                        <Image 
+                        src={activeHeroImages[currentHeroIndex]} 
+                        alt="Hero" 
+                        fill 
+                        className="object-cover opacity-80 md:opacity-90" 
+                        priority 
+                        />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 </motion.div>
             </AnimatePresence>
 
-            {/* CONTENT */}
             <div className="relative z-10 text-center space-y-6 max-w-lg px-6 mt-10 md:mt-0">
             <h2 className="text-4xl md:text-6xl font-serif text-white drop-shadow-lg leading-tight">
                 THE NEW <br className="md:hidden" /> STANDARD
             </h2>
-            
             <p className="text-white/90 text-sm md:text-base font-medium tracking-wide drop-shadow-md max-w-xs mx-auto">
                 Science-backed formulations for the modern minimalist.
             </p>
-            
-            {/* BUTTONS: Column on Mobile, Row on Desktop */}
             <div className="flex flex-col md:flex-row gap-4 justify-center items-center w-full pt-4">
-                <button 
-                onClick={scrollToShop} 
-                className="w-full md:w-auto bg-white text-black px-8 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300 rounded-sm"
-                >
+                <button onClick={scrollToShop} className="w-full md:w-auto bg-white text-black px-8 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-colors duration-300 rounded-sm">
                 Shop Collection
                 </button>
-                
-                <button 
-                onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} 
-                className="w-full md:w-auto bg-black/40 backdrop-blur-md text-white border border-white/30 px-6 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center justify-center gap-2 rounded-sm"
-                >
+                <button onClick={() => { setIsRoutineOpen(true); setRoutineTab('profile'); }} className="w-full md:w-auto bg-black/40 backdrop-blur-md text-white border border-white/30 px-6 py-4 md:py-3 text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors duration-300 flex items-center justify-center gap-2 rounded-sm">
                     <Sparkles className="w-3 h-3" /> Free Routine
                 </button>
             </div>
@@ -646,27 +606,17 @@ export default function Home() {
 
         {/* SHOP SECTION */}
         <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
-            {/* GENDER TOGGLE */}
             <div className="flex justify-center pt-4 pb-2">
                 <div className="inline-flex bg-gray-100 p-1 rounded-lg">
-                    <button 
-                        onClick={() => setActiveGender("All")}
-                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "All" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
-                    >
-                        All
-                    </button>
-                    <button 
-                        onClick={() => setActiveGender("Women")}
-                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "Women" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
-                    >
-                        Hers
-                    </button>
-                    <button 
-                        onClick={() => setActiveGender("Men")}
-                        className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === "Men" ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
-                    >
-                        Him
-                    </button>
+                    {["All", "Women", "Men"].map(gender => (
+                        <button 
+                            key={gender}
+                            onClick={() => setActiveGender(gender)}
+                            className={`px-6 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all ${activeGender === gender ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"}`}
+                        >
+                            {gender}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -682,10 +632,23 @@ export default function Home() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 gap-y-12">
                 {filteredProducts.map((product) => {
                     const isSoldOut = (product.variants && product.variants.length > 0 ? product.variants.reduce((a,v)=>a+(v.stock||0),0) : product.stock) <= 0;
+                    const isLastPiece = !isSoldOut && (product.variants && product.variants.length > 0 ? product.variants.reduce((a,v)=>a+(v.stock||0),0) : product.stock) === 1;
+                    
                     return (
-                        <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-70 pointer-events-none' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
+                        <div key={product.id} className={`group cursor-pointer ${isSoldOut ? 'opacity-90' : ''}`} onClick={() => !isSoldOut && openProduct(product)}>
                         <div className="relative aspect-[3/4] bg-gray-100 overflow-hidden mb-4 rounded-sm">
-                            {/* --- SAFE IMAGE RENDER --- */}
+                            {/* SALE TIMER */}
+                            {product.is_on_sale && product.sale_end_date && !isSoldOut && (
+                                <SaleTimer endDate={product.sale_end_date} />
+                            )}
+
+                            {/* LAST PIECE BADGE */}
+                            {isLastPiece && (
+                                <div className="absolute top-2 left-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 uppercase tracking-widest z-20">
+                                    Last Piece!
+                                </div>
+                            )}
+
                             {product.image_url ? (
                                 <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
                             ) : (
@@ -694,12 +657,25 @@ export default function Home() {
                                 </div>
                             )}
                             
+                            {/* SOLD OUT OVERLAY */}
+                            {isSoldOut && (
+                                <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex items-center justify-center z-30">
+                                    <span className="text-black text-xl font-bold uppercase tracking-widest border-2 border-black px-4 py-2">Sold Out</span>
+                                </div>
+                            )}
+                            
                             {product.is_on_sale && !isSoldOut && <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest shadow-sm z-10">Sale</div>}
+                            
                             {!isSoldOut && <button onClick={(e) => { e.stopPropagation(); addToCart(product); }} className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur text-black py-3 text-xs font-bold uppercase tracking-widest transition-transform duration-300 translate-y-0 md:translate-y-full md:group-hover:translate-y-0">Quick Add</button>}
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 line-clamp-1">{product.name}</h3>
-                            <div className="flex flex-col items-start gap-0.5">
+                            <div className="flex justify-between items-start">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{product.brand}</span>
+                                {product.subcategory && <span className="text-[10px] text-gray-400 uppercase tracking-wide">{product.category} • {product.subcategory}</span>}
+                            </div>
+                            {/* FULL NAME - Removed line clamp */}
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-900 leading-tight">{product.name}</h3>
+                            <div className="flex flex-col items-start gap-0.5 mt-1">
                                 {product.is_on_sale && product.original_price && <span className="text-[10px] text-gray-400 line-through">Was {siteSettings.currency} {product.original_price.toLocaleString()}</span>}
                                 <p className={`text-sm font-medium ${product.is_on_sale ? 'text-red-600 font-bold' : ''}`}>{siteSettings.currency} {product.price.toLocaleString()}</p>
                             </div>
@@ -720,7 +696,7 @@ export default function Home() {
 
       <Footer />
 
-      {/* --- MODALS (OUTSIDE MAIN FLOW) --- */}
+      {/* --- MODALS --- */}
 
       {/* SHOPPING BAG */}
       <AnimatePresence>
@@ -733,17 +709,15 @@ export default function Home() {
                  {cart.map((item, idx) => (
                       <div key={`${item.id}-${idx}`} className="flex gap-4">
                         <div className="relative w-20 h-24 bg-gray-100 shrink-0 border border-gray-200 rounded">
-                            {/* SAFE CART IMAGE */}
                             {item.image_url ? (
                                 <Image src={item.image_url} alt={item.name} fill className="object-cover" unoptimized />
                             ) : (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-300">
-                                    <ShoppingBag className="w-6 h-6" />
-                                </div>
+                                <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-300"><ShoppingBag className="w-6 h-6" /></div>
                             )}
                         </div>
                         <div className="flex-1 flex flex-col justify-between py-1">
-                          <h3 className="text-sm font-bold uppercase line-clamp-1">{item.name}</h3>
+                          <h3 className="text-sm font-bold uppercase line-clamp-2">{item.name}</h3>
+                          {item.selectedVariant && <p className="text-[10px] text-gray-500">Variant: {item.selectedVariant.name}</p>}
                           <div className="flex justify-between items-center">
                              <div className="flex items-center border border-gray-200"><button onClick={() => removeFromCart(item.id, item.name)} className="px-2 py-1"><Minus className="w-3 h-3" /></button><span className="text-xs font-bold w-6 text-center">{item.quantity}</span><button onClick={() => addToCart(item, 1, item.selectedVariant)} className="px-2 py-1"><Plus className="w-3 h-3" /></button></div>
                              <p className="text-sm font-medium">{siteSettings.currency} {(item.price * item.quantity).toLocaleString()}</p>
@@ -785,21 +759,17 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* TABBED ROUTINE GENERATOR MODAL */}
+      {/* ROUTINE GENERATOR MODAL (Unchanged Logic, just ensuring it's here) */}
       <AnimatePresence>
         {isRoutineOpen && (
            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsRoutineOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-md" />
              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden z-[100] flex flex-col max-h-[85vh]">
-                
-                {/* Header */}
                 <div className="bg-black text-white p-6 relative">
                   <button onClick={() => setIsRoutineOpen(false)} className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
                   <h2 className="text-xl font-bold tracking-tight">Build Your Routine</h2>
                   <p className="text-sm text-gray-400 mt-1">Get a free, personalized schedule PDF instantly.</p>
                 </div>
-
-                {/* Tabs */}
                 <div className="px-6 pt-6 shrink-0">
                   <div className="flex bg-gray-100 p-1 rounded-xl">
                     <button onClick={() => setRoutineTab('profile')} className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-lg transition-all ${routineTab === 'profile' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-black'}`}><User className="w-4 h-4" /> Setup</button>
@@ -807,8 +777,6 @@ export default function Home() {
                     <button onClick={() => setRoutineTab('pm')} className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold uppercase rounded-lg transition-all ${routineTab === 'pm' ? 'bg-white text-black shadow-sm' : 'text-gray-400 hover:text-black'}`}><Moon className="w-4 h-4" /> Evening</button>
                   </div>
                 </div>
-                
-                {/* Content */}
                 <div className="p-6 overflow-y-auto flex-1">
                     {routineTab === 'profile' && (
                         <div className="space-y-5 animate-in slide-in-from-left-4 duration-300">
@@ -827,7 +795,6 @@ export default function Home() {
                             </div>
                         </div>
                     )}
-
                     {(routineTab === 'am' || routineTab === 'pm') && (
                         <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                             <div className="flex items-center justify-between"><h3 className="text-lg font-bold text-gray-900">{routineTab === 'am' ? 'Morning Routine' : 'Evening Routine'}</h3><span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{(routineTab === 'am' ? routineForm.amProducts : routineForm.pmProducts).length} items</span></div>
@@ -847,8 +814,6 @@ export default function Home() {
                         </div>
                     )}
                 </div>
-
-                {/* Footer */}
                 <div className="p-6 border-t border-gray-100 bg-gray-50 shrink-0">
                   {routineTab === 'profile' ? (
                     <button onClick={() => setRoutineTab('am')} className="w-full bg-black text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-all">Next Step <ArrowRight className="w-4 h-4" /></button>
@@ -862,13 +827,12 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-
              </motion.div>
            </div>
         )}
       </AnimatePresence>
 
-      {/* PRODUCT DETAILS MODAL */}
+      {/* PRODUCT DETAILS MODAL (Updated with Tabs for Details) */}
       <AnimatePresence>
         {isModalOpen && selectedProduct && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -877,23 +841,19 @@ export default function Home() {
                 <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 z-10 p-2 bg-white/80 rounded-full hover:bg-gray-100 transition"><X className="w-5 h-5" /></button>
                 <div className="w-full md:w-1/2 bg-gray-50 p-6 flex flex-col gap-4 overflow-y-auto">
                     <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-white border border-gray-100">
-                        {/* SAFE MODAL MAIN IMAGE */}
+                        {/* SALE TIMER IN MODAL */}
+                        {selectedProduct.is_on_sale && selectedProduct.sale_end_date && (
+                            <SaleTimer endDate={selectedProduct.sale_end_date} />
+                        )}
                         {(activeImage || selectedProduct.image_url) ? (
                             <Image src={activeImage || selectedProduct.image_url} alt={selectedProduct.name} fill className="object-cover" unoptimized />
                         ) : (
-                            <div className="absolute inset-0 flex items-center justify-center text-gray-300">
-                                <ImageOff className="w-12 h-12 opacity-50" />
-                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center text-gray-300"><ImageOff className="w-12 h-12 opacity-50" /></div>
                         )}
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
                        <button onClick={() => setActiveImage(selectedProduct.image_url)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === selectedProduct.image_url ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}>
-                           {/* SAFE THUMBNAIL */}
-                           {selectedProduct.image_url ? (
-                               <Image src={selectedProduct.image_url} alt="Main" fill className="object-cover" unoptimized />
-                           ) : (
-                               <div className="absolute inset-0 flex items-center justify-center bg-gray-100"><ImageOff className="w-4 h-4 text-gray-300" /></div>
-                           )}
+                           {selectedProduct.image_url ? <Image src={selectedProduct.image_url} alt="Main" fill className="object-cover" unoptimized /> : <div className="absolute inset-0 flex items-center justify-center bg-gray-100"><ImageOff className="w-4 h-4 text-gray-300" /></div>}
                        </button>
                        {selectedProduct.gallery?.map((img, i) => (
                            <button key={i} onClick={() => setActiveImage(img)} className={`relative w-14 h-14 rounded-lg overflow-hidden border transition-all ${activeImage === img ? 'border-black ring-1 ring-black ring-offset-2' : 'border-transparent hover:opacity-80'}`}>
@@ -906,6 +866,10 @@ export default function Home() {
                    <div className="mb-auto">
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">{selectedProduct.brand || "Sela Cosmetics"}</span>
                       <h2 className="text-2xl md:text-3xl font-serif font-bold mb-2 leading-tight">{selectedProduct.name}</h2>
+                      
+                      {/* Subcategory Display */}
+                      {selectedProduct.subcategory && <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">{selectedProduct.category} / {selectedProduct.subcategory}</p>}
+
                       <div className="flex items-center gap-2 mb-6"><div className="flex text-yellow-500"><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/></div><span className="text-xs text-gray-400 font-bold">(4.9)</span></div>
                       
                       <div className="text-xl md:text-2xl font-bold mb-4 flex flex-col gap-1">
@@ -927,9 +891,25 @@ export default function Home() {
                         </div>
                       )}
                       
-                      <div className="mb-6 text-sm text-gray-600 leading-relaxed">
-                          {isDescExpanded || !selectedProduct.description ? <p>{selectedProduct.description || "No description available."}</p> : <p>{selectedProduct.description.substring(0, 150)}... <button onClick={() => setIsDescExpanded(true)} className="font-bold text-black underline decoration-1 underline-offset-2 ml-1">Read More</button></p>}
-                          {isDescExpanded && <button onClick={() => setIsDescExpanded(false)} className="font-bold text-black underline decoration-1 underline-offset-2 mt-1 text-xs">Show Less</button>}
+                      <div className="mb-6 text-sm text-gray-600 leading-relaxed space-y-4">
+                          <div>
+                              <h4 className="font-bold text-gray-900 uppercase text-xs mb-1">Description</h4>
+                              <p>{selectedProduct.description || "No description available."}</p>
+                          </div>
+                          
+                          {/* HOW TO USE & INGREDIENTS */}
+                          {selectedProduct.usage_info && (
+                              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                  <h4 className="font-bold text-gray-900 uppercase text-xs mb-1 flex items-center gap-2"><ClipboardList className="w-3 h-3" /> How to Use</h4>
+                                  <p className="text-xs text-gray-500">{selectedProduct.usage_info}</p>
+                              </div>
+                          )}
+                          {selectedProduct.ingredients && (
+                              <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                  <h4 className="font-bold text-gray-900 uppercase text-xs mb-1 flex items-center gap-2"><Sparkles className="w-3 h-3" /> Ingredients</h4>
+                                  <p className="text-xs text-gray-500">{selectedProduct.ingredients}</p>
+                              </div>
+                          )}
                       </div>
                       
                       <a href={`https://wa.me/${siteSettings.whatsapp}?text=Hi Sela, I need advice on ${selectedProduct.name}`} target="_blank" className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-green-600 transition mb-6 bg-gray-50 px-3 py-2 rounded-lg"><MessageCircle className="w-4 h-4" /> Ask an Expert on WhatsApp</a>
