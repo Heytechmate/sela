@@ -34,6 +34,8 @@ type Product = {
   sale_end_date?: string; 
   usage_info?: string; 
   ingredients?: string; 
+  rating?: number; // Dynamic Rating
+  review_count?: number; // Dynamic Count
 };
 
 type CartItem = Product & { quantity: number; selectedVariant: Variant | null };
@@ -56,6 +58,17 @@ const DEFAULT_HERO_IMAGES = [
   "https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?q=80&w=2574&auto=format&fit=crop", 
   "https://images.unsplash.com/photo-1596462502278-27bfdd403348?q=80&w=2574&auto=format&fit=crop", 
   "https://images.unsplash.com/photo-1556228720-1915d590a362?q=80&w=2574&auto=format&fit=crop"  
+];
+
+// Fallback if settings are empty
+const DEFAULT_REVIEWS = [
+  "⭐️⭐️⭐️⭐️⭐️ The only serum I use now. – Sarah M.",
+  "As seen in Vogue Beauty",
+  "⭐️⭐️⭐️⭐️⭐️ Completely changed my skin. – Emily R.",
+  "Cruelty-Free & Vegan Formulations 🌱",
+  "⭐️⭐️⭐️⭐️⭐️ Fast delivery, amazing packaging! – Ayesha T.",
+  "Dermatologist Approved ✨",
+  "⭐️⭐️⭐️⭐️⭐️ A must-have for the minimalist routine. – David L."
 ];
 
 // --- SMART ROUTINE PRESETS ---
@@ -189,14 +202,15 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Settings with SAFETY DEFAULTS to prevent empty source errors
+  // Settings with SAFETY DEFAULTS
   const [siteSettings, setSiteSettings] = useState({
     whatsapp: "94770000000",
     bannerText: "Welcome to Sela Cosmetics",
     currency: "LKR",
     bannerInterval: 5000,
-    heroImages: DEFAULT_HERO_IMAGES, // initialized with valid images
-    regionAssignments: {} as Record<string, string>
+    heroImages: DEFAULT_HERO_IMAGES, 
+    regionAssignments: {} as Record<string, string>,
+    marqueeReviews: DEFAULT_REVIEWS // Dynamic Marquee Array
   });
 
   // UI State
@@ -245,15 +259,16 @@ export default function Home() {
           const { data: settingsData } = await supabase.from('site_settings').select('*').limit(1).maybeSingle();
           if (settingsData) {
              const validHeroImages = (settingsData.hero_images || []).filter((url: string) => url && url.trim() !== "");
+             const validMarquee = (settingsData.marquee_reviews || []).filter((rev: string) => rev && rev.trim() !== "");
              
              setSiteSettings({
                 whatsapp: settingsData.whatsapp || "94770000000",
                 bannerText: settingsData.banner_text || "Welcome",
                 currency: settingsData.currency || "LKR",
                 bannerInterval: settingsData.banner_interval || 5000,
-                // Fallback to DEFAULT if API returns empty array
                 heroImages: validHeroImages.length > 0 ? validHeroImages : DEFAULT_HERO_IMAGES,
-                regionAssignments: settingsData.region_assignments || {}
+                regionAssignments: settingsData.region_assignments || {},
+                marqueeReviews: validMarquee.length > 0 ? validMarquee : DEFAULT_REVIEWS
              });
           }
       } catch (error) { console.error("Failed to load data:", error); } finally { setLoading(false); }
@@ -572,14 +587,15 @@ export default function Home() {
                 transition={{ duration: 1 }} 
                 className="absolute inset-0 bg-gray-900" 
                 >
-                    {/* SAFETY CHECK FOR IMAGE SRC */}
+                    {/* OPTIMIZED HERO IMAGE: Priority + Sizes */}
                     {activeHeroImages[currentHeroIndex] && (
                         <Image 
                         src={activeHeroImages[currentHeroIndex]} 
                         alt="Hero" 
                         fill 
                         className="object-cover opacity-80 md:opacity-90" 
-                        priority 
+                        priority={true} 
+                        sizes="100vw"
                         />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -603,6 +619,22 @@ export default function Home() {
             </div>
             </div>
         </section>
+
+        {/* SOCIAL PROOF MARQUEE (DYNAMIC) */}
+        <div className="bg-black text-white py-3 overflow-hidden flex whitespace-nowrap border-y border-white/10">
+            <motion.div 
+                className="flex gap-12 items-center w-max"
+                animate={{ x: ["0%", "-50%"] }}
+                transition={{ ease: "linear", duration: 30, repeat: Infinity }}
+            >
+                {/* Map dynamic array twice for infinite loop */}
+                {[...siteSettings.marqueeReviews, ...siteSettings.marqueeReviews].map((review, idx) => (
+                    <span key={idx} className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] opacity-90">
+                        {review}
+                    </span>
+                ))}
+            </motion.div>
+        </div>
 
         {/* SHOP SECTION */}
         <div id="shop-section" className="sticky top-16 z-30 bg-white border-b border-gray-100 py-4 scroll-mt-20">
@@ -650,7 +682,13 @@ export default function Home() {
                             )}
 
                             {product.image_url ? (
-                                <Image src={product.image_url} alt={product.name} fill className="object-cover transition-transform duration-700 group-hover:scale-105" unoptimized />
+                                <Image 
+                                    src={product.image_url} 
+                                    alt={product.name} 
+                                    fill 
+                                    className="object-cover transition-transform duration-700 group-hover:scale-105" 
+                                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                                />
                             ) : (
                                 <div className="absolute inset-0 flex items-center justify-center bg-gray-200 text-gray-400">
                                     <ImageOff className="w-8 h-8 opacity-50" />
@@ -832,7 +870,7 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* PRODUCT DETAILS MODAL (Updated with Tabs for Details) */}
+      {/* PRODUCT DETAILS MODAL (DYNAMIC RATING) */}
       <AnimatePresence>
         {isModalOpen && selectedProduct && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
@@ -870,7 +908,15 @@ export default function Home() {
                       {/* Subcategory Display */}
                       {selectedProduct.subcategory && <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">{selectedProduct.category} / {selectedProduct.subcategory}</p>}
 
-                      <div className="flex items-center gap-2 mb-6"><div className="flex text-yellow-500"><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/><Star className="w-3 h-3 fill-current"/></div><span className="text-xs text-gray-400 font-bold">(4.9)</span></div>
+                      {/* DYNAMIC RATING */}
+                      <div className="flex items-center gap-2 mb-6">
+                          <div className="flex text-yellow-500">
+                              {[1,2,3,4,5].map(i => (
+                                  <Star key={i} className={`w-3 h-3 ${i <= Math.round(selectedProduct.rating || 5) ? 'fill-current' : 'text-gray-200 fill-gray-200'}`} />
+                              ))}
+                          </div>
+                          <span className="text-xs text-gray-500 font-bold">({selectedProduct.rating || '5.0'} / {selectedProduct.review_count || 0} reviews)</span>
+                      </div>
                       
                       <div className="text-xl md:text-2xl font-bold mb-4 flex flex-col gap-1">
                           <div className="flex items-center gap-3">

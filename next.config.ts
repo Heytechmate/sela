@@ -8,15 +8,22 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    // --- ADDED FOR HIGH PERFORMANCE ---
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 31536000, // Cache images for 1 year
+    // ----------------------------------
     remotePatterns: [
       {
         protocol: "https",
-        // This is the specific project URL from your error log
+        hostname: "**", // WILDCARD: Allows images from ANY secure source
+      },
+      {
+        protocol: "https",
         hostname: "hinoydsqasuckerlurjd.supabase.co", 
       },
       {
         protocol: "https",
-        hostname: "**.supabase.co", // Keep wildcard for other potential projects
+        hostname: "**.supabase.co", 
       },
       {
         protocol: "https",
