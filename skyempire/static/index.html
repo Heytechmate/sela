@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkyEmpire 2026 — Airline Manager</title>
+
+<!-- Styles -->
+<link rel="stylesheet" href="/static/css/style.css">
+
+<!-- Leaflet Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+
+<!-- ===== TOPBAR ===== -->
+<div id="topbar">
+  <div class="logo">
+    <span class="logo-icon">✈</span>
+    SKYEMPIRE 2026
+  </div>
+
+  <div class="top-stats">
+    <div class="top-stat">
+      <div class="top-stat-label">Balance</div>
+      <div class="top-stat-value gold" id="stat-balance">$50.00M</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-label">Daily Rev</div>
+      <div class="top-stat-value green" id="stat-revenue">$0</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-label">Fleet</div>
+      <div class="top-stat-value blue" id="stat-fleet">0</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-label">Routes</div>
+      <div class="top-stat-value blue" id="stat-routes">0</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-label">Day</div>
+      <div class="top-stat-value" id="stat-day">Day 1</div>
+    </div>
+    <div class="top-stat">
+      <div class="top-stat-label">Rep</div>
+      <div class="top-stat-value gold" id="stat-rep">★★★☆☆</div>
+    </div>
+  </div>
+
+  <div class="top-actions">
+    <button class="btn btn-primary" id="btn-advance">⏭ Next Day</button>
+    <button class="btn btn-danger btn-sm" id="btn-reset">↺ Reset</button>
+  </div>
+</div>
+
+<!-- ===== MAIN ===== -->
+<div id="main">
+
+  <!-- ===== SIDEBAR ===== -->
+  <div id="sidebar">
+    <div class="nav-section">Operations</div>
+
+    <div class="nav-item active" data-view="dashboard">
+      <span class="nav-icon">🏠</span> Dashboard
+    </div>
+    <div class="nav-item" data-view="map">
+      <span class="nav-icon">🗺</span> World Map
+    </div>
+    <div class="nav-item" data-view="fleet">
+      <span class="nav-icon">✈</span> My Fleet
+    </div>
+    <div class="nav-item" data-view="routes">
+      <span class="nav-icon">📍</span> Routes
+    </div>
+
+    <div class="nav-section">Growth</div>
+
+    <div class="nav-item" data-view="market">
+      <span class="nav-icon">🛒</span> Aircraft Market
+    </div>
+    <div class="nav-item" data-view="staff">
+      <span class="nav-icon">👥</span> Staff
+    </div>
+    <div class="nav-item" data-view="competitors">
+      <span class="nav-icon">🤖</span> Competitors
+    </div>
+
+    <div class="nav-section">Finance</div>
+
+    <div class="nav-item" data-view="finance">
+      <span class="nav-icon">📊</span> Finance & Stocks
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div style="margin-top:auto; padding:16px 20px; border-top:1px solid var(--border);">
+      <div style="font-size:10px; color:var(--text3); letter-spacing:1px; margin-bottom:6px;">YOUR AIRLINE</div>
+      <div style="font-size:13px; font-weight:700; color:var(--accent);">SkyEmpire Airlines</div>
+      <div style="font-size:11px; color:var(--text2);">Hub: DOH • Doha, Qatar</div>
+    </div>
+  </div>
+
+  <!-- ===== CONTENT ===== -->
+  <div id="content">
+
+    <!-- ============================================================ -->
+    <!-- DASHBOARD VIEW                                               -->
+    <!-- ============================================================ -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-title">Mission Control</div>
+      <div class="page-sub">Welcome back, CEO. Your empire awaits your command.</div>
+
+      <!-- KPI Cards -->
+      <div class="grid-4 mb-16">
+        <div class="card card-gold">
+          <div class="card-label">Cash Balance</div>
+          <div class="card-value" id="d-balance">$50.00M</div>
+          <div class="card-sub">Available funds</div>
+        </div>
+        <div class="card card-green">
+          <div class="card-label">Total Revenue</div>
+          <div class="card-value blue" id="d-revenue">$0</div>
+          <div class="card-sub">Lifetime earnings</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Net Profit</div>
+          <div class="card-value green" id="d-profit">$0</div>
+          <div class="card-sub" id="d-profit-sub">Start flying routes!</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Passengers Flown</div>
+          <div class="card-value gold" id="d-pax">0</div>
+          <div class="card-sub">Lifetime total</div>
+        </div>
+      </div>
+
+      <!-- Market Pulse + Info -->
+      <div class="grid-4 mb-16">
+        <div class="card">
+          <div class="card-label">Fuel Price</div>
+          <div class="card-value blue" id="d-fuel">$0.84/L</div>
+          <div class="card-sub">Global market rate</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Season</div>
+          <div class="card-value" id="d-season">✅ Normal</div>
+          <div class="card-sub">Demand modifier</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Active Routes</div>
+          <div class="card-value blue" id="d-routes-count">0 active</div>
+          <div class="card-sub">Earning revenue</div>
+        </div>
+        <div class="card">
+          <div class="card-label">Fleet Size</div>
+          <div class="card-value blue" id="d-fleet-count">0 aircraft</div>
+          <div class="card-sub">Total owned</div>
+        </div>
+      </div>
+
+      <!-- XP + Reputation -->
+      <div class="grid-2 mb-16">
+        <div class="card">
+          <div class="flex-between mb-8">
+            <div class="card-label" id="d-level">Level 1</div>
+            <div style="font-size:12px; color:var(--text2);" id="d-xp">0 / 1000 XP</div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill blue" id="xp-bar" style="width:0%"></div>
+          </div>
+          <div style="font-size:12px; color:var(--text2); margin-top:8px;">
+            🎁 Level up to unlock new aircraft and routes!
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex-between mb-8">
+            <div class="card-label">Reputation</div>
+            <div style="font-size:12px; color:var(--gold);" id="d-rep-val">3.0 / 5.0</div>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill gold" id="rep-bar" style="width:60%"></div>
+          </div>
+          <div style="font-size:12px; color:var(--text2); margin-top:8px;">
+            ⭐ Higher reputation attracts more passengers
+          </div>
+        </div>
+      </div>
+
+      <!-- News + Quick Actions -->
+      <div class="grid-2">
+        <!-- News Feed -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:12px;">📡 Live News Feed</div>
+          <div id="news-list">
+            <div class="news-item">
+              <div class="news-dot gold"></div>
+              <div>
+                <div class="news-text">SkyEmpire Airlines founded! Your journey to aviation dominance begins today.</div>
+                <div class="news-time">Day 1 • 09:00</div>
+              </div>
+            </div>
+            <div class="news-item">
+              <div class="news-dot"></div>
+              <div>
+                <div class="news-text">Global fuel prices stable at $0.84/L following OPEC agreement.</div>
+                <div class="news-time">Day 1 • 08:30</div>
+              </div>
+            </div>
+            <div class="news-item">
+              <div class="news-dot green"></div>
+              <div>
+                <div class="news-text">Air travel demand hits record highs — analysts forecast 8% growth in 2026.</div>
+                <div class="news-time">Day 1 • 07:15</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:16px;">⚡ Quick Actions</div>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <button class="btn btn-primary btn-full" onclick="App.showView('map')">
+              🗺 Open World Map
+            </button>
+            <button class="btn btn-gold btn-full" onclick="App.showOpenRouteModal()">
+              ✈ Open New Route
+            </button>
+            <button class="btn btn-ghost btn-full" onclick="App.showView('market')">
+              🛒 Browse Aircraft Market
+            </button>
+            <button class="btn btn-ghost btn-full" onclick="App.showView('finance')">
+              📊 View Finances & Stocks
+            </button>
+            <button class="btn btn-ghost btn-full" onclick="App.showView('staff')">
+              👥 Manage Staff
+            </button>
+          </div>
+
+          <!-- Upcoming Events -->
+          <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
+            <div class="card-label" style="margin-bottom:10px;">📅 Market Info</div>
+            <div style="font-size:13px; color:var(--text2); display:flex; flex-direction:column; gap:6px;">
+              <div class="flex-between">
+                <span>Summer Peak</span>
+                <span class="mono gold">Day 150+</span>
+              </div>
+              <div class="flex-between">
+                <span>Ticket Demand</span>
+                <span class="mono green">HIGH</span>
+              </div>
+              <div class="flex-between">
+                <span>Competition</span>
+                <span class="mono gold">4 rivals</span>
+              </div>
+              <div class="flex-between">
+                <span>Airports</span>
+                <span class="mono blue">50 worldwide</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MAP VIEW                                                     -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-map">
+      <div class="page-title">World Map</div>
+      <div class="page-sub">Click any airport to open a route. Green arcs = profitable routes.</div>
+
+      <div id="map-container">
+        <div id="map"></div>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-label">🟡 Hub Airport</div>
+          <div style="font-size:13px; color:var(--text2);">Your main base of operations</div>
+        </div>
+        <div class="card">
+          <div class="card-label">🟢 Profitable Route</div>
+          <div style="font-size:13px; color:var(--text2);">Active route earning daily revenue</div>
+        </div>
+        <div class="card">
+          <div class="card-label">🔴 Loss Route</div>
+          <div style="font-size:13px; color:var(--text2);">Adjust ticket price or close route</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- FLEET VIEW                                                   -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-fleet">
+      <div class="page-title">My Fleet</div>
+      <div class="page-sub">Manage your aircraft. Keep condition high and planes flying.</div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Aircraft</th>
+              <th>Status</th>
+              <th>Route</th>
+              <th>Condition</th>
+              <th>Seats</th>
+              <th>Fuel</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fleet-tbody">
+            <tr>
+              <td colspan="7" style="text-align:center; color:var(--text3); padding:32px;">
+                Loading fleet...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ROUTES VIEW                                                  -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-routes">
+      <div class="page-title">Routes Network</div>
+      <div class="page-sub">Connect cities, fill seats, earn revenue every day.</div>
+
+      <div class="flex-between mb-16">
+        <div class="tabs">
+          <div class="tab active" onclick="App.renderRoutes('all'); this.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); this.classList.add('active');">All</div>
+          <div class="tab" onclick="App.renderRoutes('active'); this.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); this.classList.add('active');">Active</div>
+          <div class="tab" onclick="App.renderRoutes('inactive'); this.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); this.classList.add('active');">Inactive</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="App.showOpenRouteModal()">＋ New Route</button>
+      </div>
+
+      <div id="routes-list">
+        <div style="text-align:center; color:var(--text3); padding:32px;">
+          Loading routes...
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MARKET VIEW                                                  -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-market">
+      <div class="page-title">Aircraft Market</div>
+      <div class="page-sub">Purchase aircraft to expand your fleet. Higher level unlocks better planes.</div>
+
+      <div class="grid-3" id="market-grid">
+        <div style="color:var(--text3); font-size:13px; padding:24px;">Loading market...</div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STAFF VIEW                                                   -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-staff">
+      <div class="page-title">Staff Management</div>
+      <div class="page-sub">Hire and train your team. Each staff member gives real in-game bonuses.</div>
+
+      <div class="grid-3" id="staff-grid">
+        <div style="color:var(--text3); font-size:13px; padding:24px;">Loading staff...</div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- COMPETITORS VIEW                                             -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-competitors">
+      <div class="page-title">Competitor Intelligence</div>
+      <div class="page-sub">Monitor rival airlines. Watch their aggression and expansion strategies.</div>
+
+      <div class="grid-3" id="comp-grid">
+        <div style="color:var(--text3); font-size:13px; padding:24px;">Loading competitors...</div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- FINANCE VIEW                                                 -->
+    <!-- ============================================================ -->
+    <div class="view" id="view-finance">
+      <div class="page-title">Finance & Stock Market</div>
+      <div class="page-sub">Track your P&L, manage loans and trade airline stocks.</div>
+
+      <!-- Summary Cards -->
+      <div id="finance-summary"></div>
+
+      <!-- Charts -->
+      <div class="grid-2 mb-16">
+        <div class="chart-wrap">
+          <div class="card-label" style="margin-bottom:12px;">📈 Stock Prices (Last 30 Days)</div>
+          <div style="height:220px;">
+            <canvas id="stock-chart"></canvas>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <div class="card-label" style="margin-bottom:12px;">📊 Revenue vs Costs</div>
+          <div style="height:220px;">
+            <canvas id="profit-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stocks + Loans -->
+      <div class="grid-2 mb-16">
+        <!-- Stock Market -->
+        <div class="card">
+          <div class="card-label" style="margin-bottom:14px;">💹 Stock Market</div>
+          <div id="stock-list">
+            <div style="color:var(--text3); font-size:13px;">Loading stocks...</div>
+          </div>
+        </div>
+
+        <!-- Loans -->
+        <div class="card">
+          <div id="loan-section">
+            <div style="color:var(--text3); font-size:13px;">Loading loans...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transaction History -->
+      <div class="card">
+        <div class="card-label" style="margin-bottom:14px;">📜 Transaction History</div>
+        <div id="tx-list">
+          <div style="color:var(--text3); font-size:13px;">No transactions yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ===== TICKER ===== -->
+<div id="ticker">
+  <div class="ticker-label">LIVE</div>
+  <div class="ticker-track" id="ticker-content">
+    <span class="t-up">✈ SKYEMPIRE $10.00 ▲0.00%</span>
+    <span class="t-down">🛢 OIL $82.4 ▼1.2%</span>
+    <span class="t-up">📈 AVIATION INDEX ▲2.1%</span>
+    <span class="t-neutral">🌍 LOAD FACTOR AVG 82%</span>
+    <span class="t-up">💺 DEMAND HIGH</span>
+    <span class="t-neutral">🕐 SkyEmpire 2026</span>
+    <span class="t-up">✈ SKYEMPIRE $10.00 ▲0.00%</span>
+    <span class="t-down">🛢 OIL $82.4 ▼1.2%</span>
+    <span class="t-up">📈 AVIATION INDEX ▲2.1%</span>
+    <span class="t-neutral">🌍 LOAD FACTOR AVG 82%</span>
+    <span class="t-up">💺 DEMAND HIGH</span>
+    <span class="t-neutral">🕐 SkyEmpire 2026</span>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay hidden" id="modal-overlay">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<!-- ===== NOTIFICATIONS ===== -->
+<div id="notif-stack"></div>
+
+<!-- ===== SCRIPTS ===== -->
+<script src="/static/js/api.js"></script>
+<script src="/static/js/map.js"></script>
+<script src="/static/js/finance.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roster Pro</title>
+    <style>
+        /* --- DESIGN SYSTEM (Apple-inspired) --- */
+        :root {
+            --bg-body: #F5F5F7;
+            --surface: #FFFFFF;
+            --surface-translucent: rgba(255, 255, 255, 0.85);
+            --text-main: #1D1D1F;
+            --text-secondary: #86868B;
+            --border-light: #E5E5E5;
+            --primary-accent: #0066CC;
+            --shadow-soft: 0 10px 30px rgba(0,0,0,0.04);
+            --shadow-hover: 0 10px 40px rgba(0,0,0,0.08);
+            
+            /* Shift Palette (Pastel + High Contrast Text) */
+            --tag-morn-bg: #E3F2FD; --tag-morn-text: #1565C0;
+            --tag-day-bg:  #F1F8E9; --tag-day-text:  #33691E;
+            --tag-nit-bg:  #FFEBEE; --tag-nit-text:  #C62828;
+            --tag-off-bg:  #F5F5F7; --tag-off-text:  #6E6E73;
+            --tag-al-bg:   #FFF8E1; --tag-al-text:   #F57F17;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* App-like feel */
+        }
+
+        /* --- HERO UPLOAD SECTION --- */
+        #landing-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .upload-card {
+            background: var(--surface);
+            width: 500px;
+            padding: 60px 40px;
+            border-radius: 24px;
+            box-shadow: var(--shadow-soft);
+            text-align: center;
+            border: 1px solid white;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .upload-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .icon-box {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        h1 { font-size: 24px; font-weight: 600; margin: 0 0 10px 0; letter-spacing: -0.5px; }
+        p { color: var(--text-secondary); font-size: 15px; margin: 0 0 30px 0; }
+
+        .btn-upload {
+            background: var(--text-main);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+        .btn-upload:hover { background: #000; }
+
+        /* --- DASHBOARD VIEW (Initially Hidden) --- */
+        #dashboard-view {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+        }
+
+        /* Glassmorphism Header */
+        .app-header {
+            height: 70px;
+            background: var(--surface-translucent);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand { font-weight: 700; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+        .brand span { font-weight: 400; color: var(--text-secondary); }
+
+        /* Search Bar */
+        .search-container {
+            position: relative;
+        }
+        .search-input {
+            background: rgba(0,0,0,0.05);
+            border: none;
+            height: 36px;
+            width: 250px;
+            border-radius: 10px;
+            padding-left: 36px;
+            padding-right: 15px;
+            font-size: 14px;
+            color: var(--text-main);
+            outline: none;
+            transition: width 0.3s ease, background 0.3s;
+        }
+        .search-input:focus { width: 350px; background: white; box-shadow: 0 0 0 2px var(--primary-accent); }
+        
+        .search-icon {
+            position: absolute; left: 10px; top: 9px;
+            color: var(--text-secondary); font-size: 14px;
+        }
+
+        /* --- DATA GRID --- */
+        .table-wrapper {
+            flex: 1;
+            overflow: auto;
+            padding: 30px;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+            font-size: 13px;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-light);
+            background: var(--surface);
+        }
+
+        /* Sticky Header */
+        thead th {
+            position: sticky;
+            top: 0;
+            background: var(--surface);
+            z-index: 20;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        /* Sticky First Column (Names) */
+        tbody td:first-child, thead th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 30; /* Higher than normal header */
+            text-align: left;
+            padding-left: 20px;
+            font-weight: 600;
+            background: var(--surface); /* To cover scrolling content */
+            border-right: 1px solid var(--border-light);
+            min-width: 180px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.02);
+        }
+        
+        /* Fix for top-left corner intersection */
+        thead th:first-child { z-index: 40; }
+
+        /* Shift Pills */
+        .shift-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 0;
+            width: 60px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 11px;
+            transition: transform 0.1s;
+        }
+        
+        tr:hover td { background-color: #FAFAFA; }
+        tr:hover .shift-pill { transform: scale(1.05); }
+
+        /* Shift Variants */
+        .s-morn { background: var(--tag-morn-bg); color: var(--tag-morn-text); }
+        .s-day  { background: var(--tag-day-bg); color: var(--tag-day-text); }
+        .s-nit  { background: var(--tag-nit-bg); color: var(--tag-nit-text); }
+        .s-off  { background: var(--tag-off-bg); color: var(--tag-off-text); border: 1px solid #E5E5E5; }
+        .s-al   { background: var(--tag-al-bg); color: var(--tag-al-text); }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        
+        /* Loading animation */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.5s ease forwards; }
+
+    </style>
+</head>
+<body>
+
+    <div id="landing-view">
+        <div class="upload-card">
+            <div class="icon-box">📊</div>
+            <h1>Roster Pro</h1>
+            <p>Secure, client-side visualizer. No installs required.</p>
+            
+            <div id="drop-area" style="border: 2px dashed #E5E5E5; padding: 20px; border-radius: 12px; cursor: pointer;">
+                <span style="color:var(--primary-accent); font-weight:500;">Click to select CSV</span> or drag file here
+            </div>
+            <input type="file" id="fileElem" accept=".csv" style="display:none">
+        </div>
+        <p style="margin-top: 20px; font-size: 12px; color: #BBB;">Note: Save your Excel file as .CSV first</

@@ -1,0 +1,27 @@
+<!--
+  ════════════════════════════════════════════════════════════════
+  CineVault — AndroidManifest.xml Widget Registration
+  ════════════════════════════════════════════════════════════════
+
+  After running: expo prebuild --platform android
+
+  Open: android/app/src/main/AndroidManifest.xml
+
+  Add the <receiver> block INSIDE the <application> tag,
+  just before the closing </application> tag:
+  ════════════════════════════════════════════════════════════════
+-->
+
+<!-- ADD THIS INSIDE <application> in AndroidManifest.xml -->
+<receiver
+    android:name=".CineVaultWidget"
+    android:exported="true"
+    android:label="CineVault Widget">
+    <intent-filter>
+        <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+    </intent-filter>
+    <meta-data
+        android:name="android.appwidget.provider"
+        android:resource="@xml/cinevault_widget_info" />
+</receiver>
+<!-- END ADD -->
